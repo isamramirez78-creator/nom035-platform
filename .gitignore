@@ -1,0 +1,10 @@
+node_modules/
+dist/
+.env
+*.env.local
+.replit
+replit.nix
+uv.lock
+pyproject.toml
+.pythonlibs/
+attached_assets/
