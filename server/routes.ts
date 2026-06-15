@@ -691,63 +691,135 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/employees/template/:format", async (req, res) => {
     try {
       const format = req.params.format as 'excel' | 'csv';
-      
+
+      const examples = [
+        { nombre: "Juan", apellidos: "Pérez García", email: "juan.perez@empresa.com", puesto: "Analista de Sistemas", area: "Tecnología", fechaIngreso: "15/01/2024", genero: "Masculino", generacion: "Millennials" },
+        { nombre: "María", apellidos: "López Rodríguez", email: "maria.lopez@empresa.com", puesto: "Gerente de Operaciones", area: "Operaciones", fechaIngreso: "01/03/2024", genero: "Femenino", generacion: "Generación X" },
+        { nombre: "Carlos", apellidos: "Martínez Sánchez", email: "carlos.martinez@empresa.com", puesto: "Contador Senior", area: "Finanzas", fechaIngreso: "10/02/2024", genero: "Masculino", generacion: "Baby Boomers" },
+        { nombre: "Ana", apellidos: "Fernández Torres", email: "ana.fernandez@empresa.com", puesto: "Ejecutiva de Ventas", area: "Comercial", fechaIngreso: "22/04/2024", genero: "Femenino", generacion: "Generación Z" },
+      ];
+
       if (format === 'csv') {
-        // Generate CSV template with detailed examples
-        const csvHeaders = [
-          'nombre',
-          'apellidos', 
-          'email',
-          'puesto',
-          'area',
-          'fechaIngreso'
-        ];
-        
-        const csvContent = [
-          csvHeaders.join(','),
-          '# PLANTILLA DE IMPORTACIÓN DE EMPLEADOS',
-          '# Completa los datos siguiendo los ejemplos. No elimines esta línea de encabezados.',
-          '# ÁREAS VÁLIDAS: administracion, operaciones, ventas, recursos-humanos, finanzas, tecnologia, produccion',
-          '# FORMATO DE FECHA: DD/MM/AAAA (ejemplo: 15/03/2024)',
-          '# EJEMPLOS:',
-          'Juan,Pérez García,juan.perez@empresa.com,Analista de Sistemas,tecnologia,15/01/2024',
-          'María,López Rodríguez,maria.lopez@empresa.com,Gerente de Operaciones,operaciones,01/03/2024',
-          'Carlos,Martínez Sánchez,carlos.martinez@empresa.com,Contador Senior,administracion,10/02/2024',
-          'Ana,Fernández Torres,ana.fernandez@empresa.com,Ejecutiva de Ventas,ventas,22/04/2024',
-          'Roberto,Gómez Herrera,roberto.gomez@empresa.com,Supervisor de Producción,produccion,05/05/2024',
-          '# Elimina estas líneas de ejemplo y agrega tus empleados debajo'
+        const headers = ['nombre','apellidos','email','puesto','area','fechaIngreso','genero','generacion'];
+        const rows = [
+          headers.join(','),
+          ...examples.map(e => headers.map(h => e[h as keyof typeof e] || '').join(','))
         ].join('\n');
-        
-        res.setHeader('Content-Type', 'text/csv');
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
         res.setHeader('Content-Disposition', 'attachment; filename=plantilla-empleados.csv');
-        res.send(csvContent);
+        res.send('\ufeff' + rows);
+
       } else if (format === 'excel') {
-        // For Excel, we'll create a simple CSV that can be opened in Excel
-        // In a real implementation, you'd use a library like 'exceljs'
-        const csvHeaders = [
-          'nombre',
-          'apellidos',
-          'email', 
-          'puesto',
-          'area',
-          'fechaIngreso'
+        // Generar .xlsx real con ExcelJS
+        const ExcelJS = await import('exceljs');
+        const wb = new ExcelJS.Workbook();
+        wb.creator = 'NOM-035 Platform';
+        wb.created = new Date();
+
+        // ── Hoja 1: Plantilla ──────────────────────────────────────────────
+        const ws = wb.addWorksheet('Empleados');
+
+        // Ancho de columnas
+        ws.columns = [
+          { header: 'nombre',       key: 'nombre',       width: 18 },
+          { header: 'apellidos',    key: 'apellidos',    width: 22 },
+          { header: 'email',        key: 'email',        width: 30 },
+          { header: 'puesto',       key: 'puesto',       width: 25 },
+          { header: 'area',         key: 'area',         width: 20 },
+          { header: 'fechaIngreso', key: 'fechaIngreso', width: 16 },
+          { header: 'genero',       key: 'genero',       width: 16 },
+          { header: 'generacion',   key: 'generacion',   width: 20 },
         ];
-        
-        const csvContent = [
-          csvHeaders.join(','),
-          'Juan,Pérez García,juan.perez@empresa.com,Analista,administracion,01/01/2024',
-          'María,López Rodríguez,maria.lopez@empresa.com,Gerente,operaciones,15/03/2024'
-        ].join('\n');
-        
-        res.setHeader('Content-Type', 'application/vnd.ms-excel');
+
+        // Estilo del encabezado
+        const headerRow = ws.getRow(1);
+        headerRow.eachCell(cell => {
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A5F' } };
+          cell.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 };
+          cell.alignment = { vertical: 'middle', horizontal: 'center' };
+          cell.border = {
+            bottom: { style: 'medium', color: { argb: 'FF84CC16' } }
+          };
+        });
+        headerRow.height = 28;
+
+        // Fila de instrucciones (fila 2, merged)
+        ws.mergeCells('A2:H2');
+        const instrCell = ws.getCell('A2');
+        instrCell.value = '⚠ INSTRUCCIONES: Completa los datos desde la fila 4. No modifiques los encabezados. Fecha formato DD/MM/AAAA. Género: Masculino | Femenino | No binario | Prefiero no decir. Generación: Baby Boomers | Generación X | Millennials | Generación Z';
+        instrCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF9C3' } };
+        instrCell.font = { italic: true, color: { argb: 'FF854D0E' }, size: 10 };
+        instrCell.alignment = { wrapText: true, vertical: 'middle' };
+        ws.getRow(2).height = 36;
+
+        // Fila vacía separadora
+        ws.getRow(3).height = 6;
+
+        // Datos de ejemplo (desde fila 4)
+        examples.forEach((emp, i) => {
+          const row = ws.addRow(emp);
+          row.eachCell(cell => {
+            cell.fill = {
+              type: 'pattern', pattern: 'solid',
+              fgColor: { argb: i % 2 === 0 ? 'FFF8FAFC' : 'FFFFFFFF' }
+            };
+            cell.font = { size: 10 };
+            cell.alignment = { vertical: 'middle' };
+          });
+          row.height = 20;
+        });
+
+        // Congelar primera fila
+        ws.views = [{ state: 'frozen', ySplit: 1 }];
+
+        // ── Hoja 2: Instrucciones ──────────────────────────────────────────
+        const wsInstr = wb.addWorksheet('Instrucciones');
+        wsInstr.mergeCells('A1:C1');
+        wsInstr.getCell('A1').value = 'GUÍA DE IMPORTACIÓN — NOM-035 Platform';
+        wsInstr.getCell('A1').font = { bold: true, size: 14, color: { argb: 'FF1E3A5F' } };
+        wsInstr.getCell('A1').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFECFCCB' } };
+        wsInstr.getRow(1).height = 32;
+
+        const instrLines = [
+          ['Campo', 'Obligatorio', 'Descripción / Valores válidos'],
+          ['nombre', 'SÍ', 'Nombre(s) del empleado'],
+          ['apellidos', 'SÍ', 'Apellidos completos'],
+          ['email', 'No', 'Correo electrónico (debe ser único)'],
+          ['puesto', 'SÍ', 'Cargo o posición laboral'],
+          ['area', 'SÍ', 'Departamento o área de trabajo'],
+          ['fechaIngreso', 'SÍ', 'Fecha en formato DD/MM/AAAA — Ej: 15/03/2024'],
+          ['genero', 'No', 'Masculino | Femenino | No binario | Prefiero no decir'],
+          ['generacion', 'No', 'Baby Boomers | Generación X | Millennials | Generación Z'],
+        ];
+        instrLines.forEach((line, i) => {
+          const r = wsInstr.addRow(line);
+          if (i === 0) {
+            r.eachCell(c => {
+              c.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+              c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A5F' } };
+            });
+          } else {
+            r.eachCell((c, ci) => {
+              c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: i % 2 === 0 ? 'FFF8FAFC' : 'FFFFFFFF' } };
+              if (ci === 2) c.font = { color: { argb: line[1] === 'SÍ' ? 'FF15803D' : 'FF64748B' }, bold: line[1] === 'SÍ' };
+            });
+          }
+          r.height = 20;
+        });
+        wsInstr.columns = [{ width: 18 }, { width: 14 }, { width: 60 }];
+
+        // Enviar respuesta
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         res.setHeader('Content-Disposition', 'attachment; filename=plantilla-empleados.xlsx');
-        res.send(csvContent);
+        await wb.xlsx.write(res);
+        res.end();
+
       } else {
-        res.status(400).json({ message: "Format not supported" });
+        res.status(400).json({ message: "Formato no soportado. Use 'excel' o 'csv'" });
       }
     } catch (error) {
       console.error('Template generation error:', error);
-      res.status(500).json({ message: "Error generating template" });
+      res.status(500).json({ message: "Error al generar la plantilla" });
     }
   });
 
