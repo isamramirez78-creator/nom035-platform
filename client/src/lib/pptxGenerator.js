@@ -7,7 +7,16 @@
  * - Hallazgos narrativos con texto enriquecido
  */
 
-const PptxGenJS = require("pptxgenjs");
+// Browser-compatible PPTX generator
+// pptxgenjs is imported dynamically to work in both browser and Node
+let PptxGenJSLib = null;
+async function getPptx() {
+  if (!PptxGenJSLib) {
+    const mod = await import('pptxgenjs');
+    PptxGenJSLib = mod.default || mod;
+  }
+  return PptxGenJSLib;
+}
 
 // ─── Paleta de colores ────────────────────────────────────────────────────────
 const C = {
@@ -849,6 +858,7 @@ function slideCierre(pres, data) {
 
 // ─── FUNCIÓN PRINCIPAL ────────────────────────────────────────────────────────
 async function generateNOM035Presentation(data, outputPath) {
+  const PptxGenJS = await getPptx();
   const pres = new PptxGenJS();
   pres.layout = "LAYOUT_16x9";
   pres.author = "NOM-035 Platform";

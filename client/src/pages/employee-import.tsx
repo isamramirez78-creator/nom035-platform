@@ -40,9 +40,14 @@ export default function EmployeeImport() {
 
   const downloadTemplateMutation = useMutation({
     mutationFn: async (format: 'excel' | 'csv') => {
-      const response = await fetch(`/api/employees/template/${format}`);
-      if (!response.ok) throw new Error('Error downloading template');
-      
+      const token = localStorage.getItem('company_token');
+      const response = await fetch(`/api/employees/template/${format}`, {
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+      });
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({ message: 'Error al descargar' }));
+        throw new Error(err.message || 'Error al descargar la plantilla');
+      }
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -61,8 +66,8 @@ export default function EmployeeImport() {
     },
     onError: (error: any) => {
       toast({
-        title: "Error",
-        description: "No se pudo descargar la plantilla",
+        title: "Error al descargar",
+        description: error?.message || "No se pudo descargar la plantilla. Intenta de nuevo.",
         variant: "destructive",
       });
     },
