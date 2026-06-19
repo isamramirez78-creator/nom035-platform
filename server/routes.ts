@@ -1,5 +1,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import ExcelJS from "exceljs";
 import { storage } from "./storage";
 import { emailService } from "./email-service";
 import { authenticateCompany, checkSubscriptionLimits, requireActiveSubscription } from "./auth";
@@ -687,7 +688,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Employee template and import routes (public for download)
+  // Employee template — público, no requiere autenticación
   app.get("/api/employees/template/:format", async (req, res) => {
     try {
       const format = req.params.format as 'excel' | 'csv';
@@ -711,7 +712,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       } else if (format === 'excel') {
         // Generar .xlsx real con ExcelJS
-        const ExcelJS = await import('exceljs');
         const wb = new ExcelJS.Workbook();
         wb.creator = 'NOM-035 Platform';
         wb.created = new Date();
@@ -808,11 +808,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
         wsInstr.columns = [{ width: 18 }, { width: 14 }, { width: 60 }];
 
-        // Enviar respuesta
+        // Enviar respuesta — usar writeBuffer (más confiable que stream directo)
+        const buffer = await wb.xlsx.writeBuffer();
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         res.setHeader('Content-Disposition', 'attachment; filename=plantilla-empleados.xlsx');
-        await wb.xlsx.write(res);
-        res.end();
+        res.setHeader('Content-Length', buffer.byteLength.toString());
+        res.send(Buffer.from(buffer));
 
       } else {
         res.status(400).json({ message: "Formato no soportado. Use 'excel' o 'csv'" });
