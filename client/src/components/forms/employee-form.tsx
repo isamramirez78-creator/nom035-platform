@@ -1,6 +1,7 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { insertEmployeeSchema, type InsertEmployee, type Employee } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,6 +18,7 @@ interface EmployeeFormProps {
 
 export default function EmployeeForm({ employee, onSuccess }: EmployeeFormProps) {
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
   
   const form = useForm<InsertEmployee>({
     resolver: zodResolver(insertEmployeeSchema),
@@ -29,6 +31,8 @@ export default function EmployeeForm({ employee, onSuccess }: EmployeeFormProps)
       email: employee?.email || "",
       genero: (employee as any)?.genero || "",
       generacion: (employee as any)?.generacion || "",
+      rfc: (employee as any)?.rfc || "",
+      curp: (employee as any)?.curp || "",
     },
   });
 
@@ -48,11 +52,32 @@ export default function EmployeeForm({ employee, onSuccess }: EmployeeFormProps)
       onSuccess?.();
     },
     onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: error.message || "No se pudo registrar el empleado",
-        variant: "destructive",
-      });
+      const isLimitError = error?.message?.includes('Límite de empleados') || error?.limit;
+      if (isLimitError) {
+        toast({
+          title: "Límite de empleados alcanzado",
+          description: "Tu plan actual no permite más empleados. Actualiza tu plan para continuar.",
+          variant: "destructive",
+          action: (
+            <button
+              onClick={() => setLocation("/subscription-plans")}
+              style={{
+                background: "#1E3A5F", color: "white", padding: "6px 12px",
+                borderRadius: "6px", fontSize: "12px", fontWeight: 600,
+                border: "none", cursor: "pointer", whiteSpace: "nowrap"
+              }}
+            >
+              Ver planes
+            </button>
+          ),
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: error.message || "No se pudo registrar el empleado",
+          variant: "destructive",
+        });
+      }
     },
   });
 
@@ -234,6 +259,46 @@ export default function EmployeeForm({ employee, onSuccess }: EmployeeFormProps)
                     <SelectItem value="Generación Z">Generación Z (1997–2012)</SelectItem>
                   </SelectContent>
                 </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <FormField
+            control={form.control}
+            name={"rfc" as any}
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>RFC <span className="text-slate-400 font-normal text-xs">(opcional)</span></FormLabel>
+                <FormControl>
+                  <Input
+                    placeholder="AAAA000000AAA"
+                    maxLength={13}
+                    {...field}
+                    onChange={(e) => field.onChange(e.target.value.toUpperCase())}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name={"curp" as any}
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>CURP <span className="text-slate-400 font-normal text-xs">(opcional)</span></FormLabel>
+                <FormControl>
+                  <Input
+                    placeholder="AAAA000000HAAAAA00"
+                    maxLength={18}
+                    {...field}
+                    onChange={(e) => field.onChange(e.target.value.toUpperCase())}
+                  />
+                </FormControl>
                 <FormMessage />
               </FormItem>
             )}

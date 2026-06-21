@@ -6,6 +6,8 @@ import { emailService } from "./email-service";
 import { authenticateCompany, checkSubscriptionLimits, requireActiveSubscription } from "./auth";
 import { registerCompanyRoutes } from "./company-routes";
 import { stripeService } from "./stripe-service";
+import { mercadoPagoService } from "./mercadopago-service";
+import { companyStorage } from "./company-storage";
 import { 
   insertEmployeeSchema, 
   insertEvaluationSchema,
@@ -685,6 +687,111 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Webhook error:', error);
       res.status(400).json({ error: "Webhook processing failed" });
+    }
+  });
+
+  // ── Panel de Administración (solo cuentas con isAdmin=true) ──────────────
+  const requireAdmin = (req: any, res: any, next: any) => {
+    if (!req.company?.isAdmin) {
+      return res.status(403).json({ message: "Acceso restringido a administradores" });
+    }
+    next();
+  };
+
+  // Listar todas las empresas registradas en la plataforma
+  app.get("/api/admin/companies", authenticateCompany, requireAdmin, async (req, res) => {
+    try {
+      const allCompanies = await companyStorage.getAllCompanies();
+      const sanitized = allCompanies.map(({ contrasena, ...c }) => c);
+      res.json(sanitized);
+    } catch (error) {
+      console.error('Error fetching companies:', error);
+      res.status(500).json({ message: "Error al obtener empresas" });
+    }
+  });
+
+  // Activar/desactivar o cambiar plan de una empresa manualmente
+  app.patch("/api/admin/companies/:id", authenticateCompany, requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id, 10);
+      const { subscriptionPlan, subscriptionStatus, maxEmployees, maxEvaluationsPerMonth, isActive } = req.body;
+      const updated = await companyStorage.updateCompanySubscription(id, {
+        ...(subscriptionPlan && { subscriptionPlan }),
+        ...(subscriptionStatus && { subscriptionStatus }),
+        ...(maxEmployees !== undefined && { maxEmployees }),
+        ...(maxEvaluationsPerMonth !== undefined && { maxEvaluationsPerMonth }),
+        ...(isActive !== undefined && { isActive }),
+      });
+      if (!updated) return res.status(404).json({ message: "Empresa no encontrada" });
+      const { contrasena, ...sanitized } = updated;
+      res.json(sanitized);
+    } catch (error) {
+      console.error('Error updating company:', error);
+      res.status(500).json({ message: "Error al actualizar empresa" });
+    }
+  });
+
+  // ── Mercado Pago — Suscripciones recurrentes ──────────────────────────────
+
+  // Crear link de suscripción (la empresa elige plan en /subscription-plans)
+  app.post("/api/mercadopago/create-subscription", authenticateCompany, async (req: any, res) => {
+    try {
+      const { planId } = req.body;
+      const company = req.company;
+
+      if (!planId) {
+        return res.status(400).json({ message: "planId es requerido" });
+      }
+
+      const baseUrl = process.env.BASE_URL || `https://${req.get('host')}`;
+
+      const result = await mercadoPagoService.createSubscriptionLink({
+        companyId: company.id,
+        email: company.correoElectronico || company.email,
+        planId,
+        backUrl: `${baseUrl}/subscription-plans?status=success`,
+      });
+
+      if (!result) {
+        return res.status(503).json({
+          message: "Mercado Pago no está configurado. Contacta al administrador."
+        });
+      }
+
+      res.json({ checkoutUrl: result.initPoint, preapprovalId: result.preapprovalId });
+    } catch (error) {
+      console.error('Error creating MP subscription:', error);
+      res.status(500).json({ message: "Error al crear la suscripción" });
+    }
+  });
+
+  // Webhook — Mercado Pago notifica cambios de estado aquí (público, sin auth)
+  app.post("/api/mercadopago/webhook", async (req, res) => {
+    try {
+      await mercadoPagoService.handleWebhook(req.body);
+      res.status(200).send('OK');
+    } catch (error) {
+      console.error('Error processing MP webhook:', error);
+      // Siempre responder 200 para que Mercado Pago no reintente innecesariamente
+      res.status(200).send('OK');
+    }
+  });
+
+  // Cancelar suscripción activa
+  app.post("/api/mercadopago/cancel-subscription", authenticateCompany, async (req: any, res) => {
+    try {
+      const company = req.company;
+      if (!company.mercadopagoSubscriptionId) {
+        return res.status(400).json({ message: "No hay suscripción activa" });
+      }
+      const success = await mercadoPagoService.cancelSubscription(company.mercadopagoSubscriptionId);
+      if (success) {
+        await companyStorage.updateCompanySubscription(company.id, { subscriptionStatus: 'cancelled' });
+      }
+      res.json({ success });
+    } catch (error) {
+      console.error('Error cancelling MP subscription:', error);
+      res.status(500).json({ message: "Error al cancelar la suscripción" });
     }
   });
 

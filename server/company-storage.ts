@@ -29,6 +29,11 @@ export class CompanyStorage {
     return company || undefined;
   }
 
+  // Lista todas las empresas — usado solo por el panel de Admin
+  async getAllCompanies(): Promise<Company[]> {
+    return db.select().from(companies).orderBy(companies.createdAt);
+  }
+
   async createCompany(insertCompany: InsertCompany): Promise<Company> {
     // Set trial end date to 30 days from now
     const trialEndDate = new Date();

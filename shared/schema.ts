@@ -45,10 +45,12 @@ export const companies = pgTable("companies", {
   subscriptionStatus: text("subscription_status").default("active"),
   stripeCustomerId: text("stripe_customer_id"),
   stripeSubscriptionId: text("stripe_subscription_id"),
+  mercadopagoSubscriptionId: text("mercadopago_subscription_id"),
+  isAdmin: boolean("is_admin").default(false), // Cuenta de administrador de plataforma — sin límites, ve todas las empresas
   subscriptionStartDate: timestamp("subscription_start_date").defaultNow(),
   subscriptionEndDate: timestamp("subscription_end_date"),
   trialEndDate: timestamp("trial_end_date"),
-  maxEmployees: integer("max_employees").default(15),
+  maxEmployees: integer("max_employees").default(5),
   maxEvaluationsPerMonth: integer("max_evaluations_per_month").default(50),
   
   isActive: boolean("is_active").default(true),
@@ -101,6 +103,8 @@ export const employees = pgTable("employees", {
   // Campos demográficos opcionales — usados en reportes NOM-035
   genero: text("genero"),          // "Masculino" | "Femenino" | "No binario" | "Prefiero no decir"
   generacion: text("generacion"),  // "Baby Boomers" | "Generación X" | "Millennials" | "Generación Z"
+  rfc: text("rfc"),                // RFC del trabajador (13 caracteres, opcional)
+  curp: text("curp"),              // CURP del trabajador (18 caracteres, opcional)
   riskStatus: text("risk_status").default("sin-evaluar"),
   lastEvaluationDate: timestamp("last_evaluation_date"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -222,6 +226,15 @@ export const questionnaireInvitations = pgTable("questionnaire_invitations", {
 export const insertEmployeeSchema = createInsertSchema(employees).omit({
   id: true,
   createdAt: true,
+}).extend({
+  rfc: z.string()
+    .regex(/^[A-ZÑ&]{3,4}\d{6}[A-Z0-9]{3}$/i, "RFC inválido (formato: AAAA000000AAA)")
+    .optional()
+    .or(z.literal("")),
+  curp: z.string()
+    .regex(/^[A-Z]{4}\d{6}[HM][A-Z]{5}[A-Z0-9]\d$/i, "CURP inválida (18 caracteres)")
+    .optional()
+    .or(z.literal("")),
 });
 
 export const insertEvaluationSchema = createInsertSchema(evaluations).omit({

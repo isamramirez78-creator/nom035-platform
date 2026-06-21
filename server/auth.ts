@@ -84,6 +84,12 @@ export async function checkSubscriptionLimits(req: AuthenticatedRequest, res: Re
     }
 
     const company = req.company;
+
+    // Las cuentas de Admin no tienen límites de plan — para pruebas y administración
+    if (company.isAdmin) {
+      return next();
+    }
+
     const currentMonth = new Date().getMonth() + 1;
     const currentYear = new Date().getFullYear();
 
@@ -127,6 +133,12 @@ export function requireActiveSubscription(req: AuthenticatedRequest, res: Respon
   }
 
   const company = req.company;
+
+  // Las cuentas de Admin siempre tienen acceso completo — para pruebas y administración
+  if (company.isAdmin) {
+    return next();
+  }
+
   const now = new Date();
 
   // Check if trial period is active

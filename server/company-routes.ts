@@ -53,6 +53,62 @@ export function registerCompanyRoutes(app: Express) {
     }
   });
 
+  // ── Crear cuenta de Admin (un solo uso, protegida por clave secreta) ──────
+  // Llamar UNA VEZ desde Postman/curl: POST /api/admin/seed con header x-setup-key
+  app.post("/api/admin/seed", async (req, res) => {
+    try {
+      const setupKey = req.headers['x-setup-key'];
+      if (!process.env.ADMIN_SETUP_KEY || setupKey !== process.env.ADMIN_SETUP_KEY) {
+        return res.status(403).json({ message: "Clave de configuración inválida" });
+      }
+
+      const { correoElectronico, contrasena, razonSocial } = req.body;
+      if (!correoElectronico || !contrasena) {
+        return res.status(400).json({ message: "correoElectronico y contrasena son requeridos" });
+      }
+
+      const existing = await companyStorage.getCompanyByEmail(correoElectronico);
+      if (existing) {
+        // Si ya existe, solo lo promovemos a admin (útil si te registraste normal antes)
+        const updated = await companyStorage.updateCompanySubscription(existing.id, {
+          isAdmin: true,
+          subscriptionPlan: 'enterprise',
+          subscriptionStatus: 'active',
+          maxEmployees: 999999,
+          maxEvaluationsPerMonth: 999999,
+        });
+        const { contrasena: _, ...safe } = updated!;
+        return res.json({ message: "Cuenta existente promovida a Admin", company: safe });
+      }
+
+      const hashedPassword = await hashPassword(contrasena);
+      const company = await companyStorage.createCompany({
+        razonSocial: razonSocial || "Administración NOM-035",
+        rfc: "ADMIN000000XXX",
+        correoElectronico,
+        contrasena: hashedPassword,
+        telefono: "0000000000",
+        direccion: "N/A",
+        sector: "Administración",
+        numeroEmpleados: 0,
+      } as any);
+
+      await companyStorage.updateCompanySubscription(company.id, {
+        isAdmin: true,
+        subscriptionPlan: 'enterprise',
+        subscriptionStatus: 'active',
+        maxEmployees: 999999,
+        maxEvaluationsPerMonth: 999999,
+      });
+
+      const token = generateToken(company.id, company.correoElectronico);
+      res.status(201).json({ message: "Cuenta de Admin creada exitosamente", token });
+    } catch (error) {
+      console.error("Admin seed error:", error);
+      res.status(500).json({ message: "Error al crear cuenta de Admin" });
+    }
+  });
+
   // Company login
   app.post("/api/companies/login", async (req, res) => {
     try {
