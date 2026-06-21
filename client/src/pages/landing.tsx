@@ -64,15 +64,30 @@ export default function Landing() {
                 Gestione evaluaciones psicosociales, genere reportes oficiales y mantenga 
                 el compliance de su organización con la más alta precisión.
               </p>
+
+              <div className="bg-lime-50 border border-lime-300 rounded-xl p-4 mb-6 flex items-start gap-3">
+                <div className="bg-lime-500 rounded-full p-1.5 flex-shrink-0 mt-0.5">
+                  <CheckCircle className="h-4 w-4 text-white" />
+                </div>
+                <div>
+                  <p className="font-semibold text-slate-900 text-sm">
+                    Prueba gratis — Evalúa hasta 5 colaboradores sin costo
+                  </p>
+                  <p className="text-slate-600 text-xs mt-0.5">
+                    Aplica el cuestionario oficial NOM-035 y recibe tu reporte de resultados. Sin tarjeta de crédito.
+                  </p>
+                </div>
+              </div>
+
               <div className="flex flex-col sm:flex-row gap-4">
-                <Link href="/plans">
-                  <Button size="lg" className="bg-slate-900 hover:bg-slate-800 text-white px-8 py-3 text-lg font-semibold">
-                    Ver Planes y Precios
+                <Link href="/company-register">
+                  <Button size="lg" className="bg-lime-600 hover:bg-lime-700 text-white px-8 py-3 text-lg font-semibold">
+                    Comenzar prueba gratuita
                   </Button>
                 </Link>
-                <Link href="/company-login">
+                <Link href="/plans">
                   <Button variant="outline" size="lg" className="border-slate-300 text-slate-700 hover:bg-slate-50 px-8 py-3 text-lg font-semibold">
-                    Portal Corporativo
+                    Ver Planes y Precios
                   </Button>
                 </Link>
               </div>

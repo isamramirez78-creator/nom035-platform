@@ -1,5 +1,8 @@
 import { useState } from "react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
+import { useMutation } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -177,6 +180,33 @@ const plans = {
 export default function SubscriptionPlans() {
   const [isYearly, setIsYearly] = useState(false);
   const currentPlans = isYearly ? plans.yearly : plans.monthly;
+  const { toast } = useToast();
+
+  const subscribeMutation = useMutation({
+    mutationFn: async (planId: string) => {
+      const res = await apiRequest("POST", "/api/mercadopago/create-subscription", { planId });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      if (data.checkoutUrl) {
+        // Redirige a Mercado Pago para autorizar el cobro recurrente
+        window.location.href = data.checkoutUrl;
+      } else {
+        toast({
+          title: "No se pudo iniciar el pago",
+          description: "Intenta de nuevo en unos momentos.",
+          variant: "destructive",
+        });
+      }
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error al procesar el plan",
+        description: error?.message || "Verifica tu sesión e intenta de nuevo.",
+        variant: "destructive",
+      });
+    },
+  });
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('es-MX', {
@@ -331,16 +361,16 @@ export default function SubscriptionPlans() {
                     </div>
                   )}
 
-                  <Link href={`/checkout?plan=${plan.id}`}>
-                    <Button 
-                      className={`w-full ${plan.popular ? 'bg-slate-900 hover:bg-slate-800' : 'bg-slate-700 hover:bg-slate-600'} text-white`}
-                    >
-                      {index === 0 && <Building2 className="h-4 w-4 mr-2" />}
-                      {index === 1 && <Zap className="h-4 w-4 mr-2" />}
-                      {index === 2 && <Crown className="h-4 w-4 mr-2" />}
-                      Seleccionar Plan
-                    </Button>
-                  </Link>
+                  <Button
+                    onClick={() => subscribeMutation.mutate(plan.id)}
+                    disabled={subscribeMutation.isPending}
+                    className={`w-full ${plan.popular ? 'bg-slate-900 hover:bg-slate-800' : 'bg-slate-700 hover:bg-slate-600'} text-white`}
+                  >
+                    {index === 0 && <Building2 className="h-4 w-4 mr-2" />}
+                    {index === 1 && <Zap className="h-4 w-4 mr-2" />}
+                    {index === 2 && <Crown className="h-4 w-4 mr-2" />}
+                    {subscribeMutation.isPending ? "Redirigiendo..." : "Seleccionar Plan"}
+                  </Button>
                 </CardContent>
               </Card>
             ))}

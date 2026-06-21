@@ -690,47 +690,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // ── Panel de Administración (solo cuentas con isAdmin=true) ──────────────
-  const requireAdmin = (req: any, res: any, next: any) => {
-    if (!req.company?.isAdmin) {
-      return res.status(403).json({ message: "Acceso restringido a administradores" });
-    }
-    next();
-  };
-
-  // Listar todas las empresas registradas en la plataforma
-  app.get("/api/admin/companies", authenticateCompany, requireAdmin, async (req, res) => {
-    try {
-      const allCompanies = await companyStorage.getAllCompanies();
-      const sanitized = allCompanies.map(({ contrasena, ...c }) => c);
-      res.json(sanitized);
-    } catch (error) {
-      console.error('Error fetching companies:', error);
-      res.status(500).json({ message: "Error al obtener empresas" });
-    }
-  });
-
-  // Activar/desactivar o cambiar plan de una empresa manualmente
-  app.patch("/api/admin/companies/:id", authenticateCompany, requireAdmin, async (req, res) => {
-    try {
-      const id = parseInt(req.params.id, 10);
-      const { subscriptionPlan, subscriptionStatus, maxEmployees, maxEvaluationsPerMonth, isActive } = req.body;
-      const updated = await companyStorage.updateCompanySubscription(id, {
-        ...(subscriptionPlan && { subscriptionPlan }),
-        ...(subscriptionStatus && { subscriptionStatus }),
-        ...(maxEmployees !== undefined && { maxEmployees }),
-        ...(maxEvaluationsPerMonth !== undefined && { maxEvaluationsPerMonth }),
-        ...(isActive !== undefined && { isActive }),
-      });
-      if (!updated) return res.status(404).json({ message: "Empresa no encontrada" });
-      const { contrasena, ...sanitized } = updated;
-      res.json(sanitized);
-    } catch (error) {
-      console.error('Error updating company:', error);
-      res.status(500).json({ message: "Error al actualizar empresa" });
-    }
-  });
-
   // ── Mercado Pago — Suscripciones recurrentes ──────────────────────────────
 
   // Crear link de suscripción (la empresa elige plan en /subscription-plans)
