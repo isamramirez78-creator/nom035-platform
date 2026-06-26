@@ -17,10 +17,7 @@ export default function CompanyLogin() {
 
   const form = useForm<LoginCompany>({
     resolver: zodResolver(loginCompanySchema),
-    defaultValues: {
-      correoElectronico: "",
-      contrasena: "",
-    },
+    defaultValues: { correoElectronico: "", contrasena: "" },
   });
 
   const loginMutation = useMutation({
@@ -29,6 +26,7 @@ export default function CompanyLogin() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
+        credentials: "include",
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.message || "Credenciales incorrectas");
@@ -42,8 +40,10 @@ export default function CompanyLogin() {
         title: "Inicio de sesión exitoso",
         description: "Bienvenido al sistema de gestión NOM-035",
       });
-      // Recarga completa para que ProtectedRoute detecte el token
-      window.location.href = "/dashboard";
+      // Pequeño delay para que el toast se vea, luego recarga completa
+      setTimeout(() => {
+        window.location.replace("/dashboard");
+      }, 500);
     },
     onError: (error: Error) => {
       toast({
@@ -54,28 +54,19 @@ export default function CompanyLogin() {
     },
   });
 
-  const onSubmit = (data: LoginCompany) => {
-    loginMutation.mutate(data);
-  };
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
       <div className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
-        
-        {/* Left side - Features */}
         <div className="space-y-8 text-center lg:text-left">
           <div className="space-y-4">
             <div className="flex items-center justify-center lg:justify-start">
               <Building2 className="h-16 w-16 text-blue-600" />
             </div>
-            <h1 className="text-4xl font-bold text-gray-900">
-              Sistema NOM-035-STPS
-            </h1>
+            <h1 className="text-4xl font-bold text-gray-900">Sistema NOM-035-STPS</h1>
             <p className="text-xl text-gray-600">
               Plataforma integral para el cumplimiento de la normativa de factores de riesgo psicosocial en el trabajo
             </p>
           </div>
-
           <div className="space-y-6">
             {[
               { title: "Cumplimiento Total", desc: "Implementación completa de todos los requerimientos de la NOM-035-STPS-2018" },
@@ -94,80 +85,48 @@ export default function CompanyLogin() {
           </div>
         </div>
 
-        {/* Right side - Login Form */}
         <Card className="w-full max-w-md mx-auto">
           <CardHeader className="text-center">
             <div className="flex items-center justify-center mb-4">
               <Shield className="h-10 w-10 text-blue-600" />
             </div>
-            <CardTitle className="text-2xl font-bold text-gray-900">
-              Iniciar Sesión
-            </CardTitle>
-            <CardDescription className="text-gray-600">
-              Acceda a su cuenta empresarial
-            </CardDescription>
+            <CardTitle className="text-2xl font-bold text-gray-900">Iniciar Sesión</CardTitle>
+            <CardDescription className="text-gray-600">Acceda a su cuenta empresarial</CardDescription>
           </CardHeader>
-
           <CardContent>
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                <FormField
-                  control={form.control}
-                  name="correoElectronico"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Correo Electrónico</FormLabel>
-                      <FormControl>
-                        <Input type="email" placeholder="empresa@ejemplo.com" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="contrasena"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Contraseña</FormLabel>
-                      <FormControl>
-                        <div className="relative">
-                          <Input
-                            type={showPassword ? "text" : "password"}
-                            placeholder="Ingrese su contraseña"
-                            {...field}
-                          />
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="absolute right-0 top-0 h-full px-3 py-2"
-                            onClick={() => setShowPassword(!showPassword)}
-                          >
-                            {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                          </Button>
-                        </div>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
+              <form onSubmit={form.handleSubmit((d) => loginMutation.mutate(d))} className="space-y-6">
+                <FormField control={form.control} name="correoElectronico" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Correo Electrónico</FormLabel>
+                    <FormControl><Input type="email" placeholder="empresa@ejemplo.com" {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <FormField control={form.control} name="contrasena" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Contraseña</FormLabel>
+                    <FormControl>
+                      <div className="relative">
+                        <Input type={showPassword ? "text" : "password"} placeholder="Ingrese su contraseña" {...field} />
+                        <Button type="button" variant="ghost" size="sm"
+                          className="absolute right-0 top-0 h-full px-3"
+                          onClick={() => setShowPassword(!showPassword)}>
+                          {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </Button>
+                      </div>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
                 <Button type="submit" className="w-full" disabled={loginMutation.isPending}>
                   {loginMutation.isPending ? "Iniciando sesión..." : "Iniciar Sesión"}
                 </Button>
               </form>
             </Form>
-
             <div className="mt-6 space-y-4">
-              <div className="text-center">
-                <span className="text-sm text-gray-400">¿Olvidó su contraseña?</span>
-              </div>
               <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <span className="w-full border-t" />
-                </div>
+                <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
                 <div className="relative flex justify-center text-xs uppercase">
                   <span className="bg-white px-2 text-gray-500">O</span>
                 </div>
@@ -181,7 +140,6 @@ export default function CompanyLogin() {
                 </p>
               </div>
             </div>
-
             <div className="mt-6 pt-6 border-t border-gray-200 text-center">
               <p className="text-xs text-gray-500">Sistema certificado para cumplimiento de</p>
               <p className="text-xs font-semibold text-gray-700 mt-1">NOM-035-STPS-2018</p>

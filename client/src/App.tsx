@@ -1,4 +1,4 @@
-import { Switch, Route, useLocation, Redirect } from "wouter";
+import { Switch, Route, Redirect } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -12,7 +12,6 @@ import EmployeeDetail from "@/pages/employee-detail";
 import Questionnaires from "@/pages/questionnaires";
 import Reports from "@/pages/reports";
 import Notifications from "@/pages/notifications";
-import Login from "@/pages/login";
 import CompanyRegistration from "@/pages/company-registration";
 import SubscriptionPlans from "@/pages/subscription-plans";
 import ComplianceDashboard from "@/pages/compliance-dashboard";
@@ -25,83 +24,64 @@ import EmployeeInvitations from "@/pages/employee-invitations";
 import PublicQuestionnaire from "@/pages/public-questionnaire";
 import CompanyLogin from "@/pages/company-login";
 import CompanyRegister from "@/pages/company-register";
+import CompanyProfile from "@/pages/company-profile";
 import Landing from "@/pages/landing";
 
 // ─── Guard de autenticación ───────────────────────────────────────────────────
 function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
   const token = localStorage.getItem("company_token");
-  if (!token) {
-    return <Redirect to="/login" />;
-  }
+  if (!token) return <Redirect to="/login" />;
   return <Component />;
+}
+
+// ─── Layout con Header + Nav (solo para rutas protegidas) ─────────────────────
+function AppLayout({ component: Component }: { component: React.ComponentType }) {
+  const token = localStorage.getItem("company_token");
+  if (!token) return <Redirect to="/login" />;
+  return (
+    <div className="min-h-screen" style={{ background: "#F8FAFC" }}>
+      <Header />
+      <Navigation />
+      <main>
+        <Component />
+      </main>
+    </div>
+  );
 }
 
 function Router() {
   return (
-    <div className="min-h-screen bg-slate-50">
-      <Header />
-      <Navigation />
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <Switch>
-          {/* Rutas públicas */}
-          <Route path="/" component={Landing} />
-          <Route path="/landing" component={Landing} />
-          <Route path="/login" component={CompanyLogin} />
-          <Route path="/company-login" component={CompanyLogin} />
-          <Route path="/company-register" component={CompanyRegister} />
-          <Route path="/register" component={CompanyRegistration} />
-          <Route path="/plans" component={SubscriptionPlans} />
-          <Route path="/subscription-plans" component={SubscriptionPlans} />
-          <Route path="/cuestionario/:token" component={PublicQuestionnaire} />
+    <Switch>
+      {/* Rutas públicas — sin header/nav */}
+      <Route path="/" component={Landing} />
+      <Route path="/landing" component={Landing} />
+      <Route path="/login" component={CompanyLogin} />
+      <Route path="/company-login" component={CompanyLogin} />
+      <Route path="/company-register" component={CompanyRegister} />
+      <Route path="/register" component={CompanyRegistration} />
+      <Route path="/plans" component={SubscriptionPlans} />
+      <Route path="/subscription-plans" component={SubscriptionPlans} />
+      <Route path="/cuestionario/:token" component={PublicQuestionnaire} />
 
-          {/* Rutas protegidas — requieren login */}
-          <Route path="/dashboard">
-            <ProtectedRoute component={Dashboard} />
-          </Route>
-          <Route path="/employees">
-            <ProtectedRoute component={Employees} />
-          </Route>
-          <Route path="/employees/:id">
-            <ProtectedRoute component={EmployeeDetail} />
-          </Route>
-          <Route path="/questionnaires">
-            <ProtectedRoute component={Questionnaires} />
-          </Route>
-          <Route path="/reports">
-            <ProtectedRoute component={Reports} />
-          </Route>
-          <Route path="/notifications">
-            <ProtectedRoute component={Notifications} />
-          </Route>
-          <Route path="/compliance-dashboard">
-            <ProtectedRoute component={ComplianceDashboard} />
-          </Route>
-          <Route path="/compliance">
-            <ProtectedRoute component={ComplianceDashboard} />
-          </Route>
-          <Route path="/import">
-            <ProtectedRoute component={EmployeeImport} />
-          </Route>
-          <Route path="/interventions">
-            <ProtectedRoute component={Interventions} />
-          </Route>
-          <Route path="/methodology">
-            <ProtectedRoute component={EvaluationMethodology} />
-          </Route>
-          <Route path="/traumatic-status">
-            <ProtectedRoute component={TraumaticEventsStatus} />
-          </Route>
-          <Route path="/invitations">
-            <ProtectedRoute component={EmployeeInvitations} />
-          </Route>
-          <Route path="/checkout">
-            <ProtectedRoute component={Checkout} />
-          </Route>
+      {/* Rutas protegidas — con header/nav */}
+      <Route path="/dashboard">{() => <AppLayout component={Dashboard} />}</Route>
+      <Route path="/employees">{() => <AppLayout component={Employees} />}</Route>
+      <Route path="/employees/:id">{() => <AppLayout component={EmployeeDetail} />}</Route>
+      <Route path="/questionnaires">{() => <AppLayout component={Questionnaires} />}</Route>
+      <Route path="/reports">{() => <AppLayout component={Reports} />}</Route>
+      <Route path="/notifications">{() => <AppLayout component={Notifications} />}</Route>
+      <Route path="/compliance-dashboard">{() => <AppLayout component={ComplianceDashboard} />}</Route>
+      <Route path="/compliance">{() => <AppLayout component={ComplianceDashboard} />}</Route>
+      <Route path="/import">{() => <AppLayout component={EmployeeImport} />}</Route>
+      <Route path="/interventions">{() => <AppLayout component={Interventions} />}</Route>
+      <Route path="/methodology">{() => <AppLayout component={EvaluationMethodology} />}</Route>
+      <Route path="/traumatic-status">{() => <AppLayout component={TraumaticEventsStatus} />}</Route>
+      <Route path="/invitations">{() => <AppLayout component={EmployeeInvitations} />}</Route>
+      <Route path="/checkout">{() => <AppLayout component={Checkout} />}</Route>
+      <Route path="/company-profile">{() => <AppLayout component={CompanyProfile} />}</Route>
 
-          <Route component={NotFound} />
-        </Switch>
-      </main>
-    </div>
+      <Route component={NotFound} />
+    </Switch>
   );
 }
 
