@@ -100,10 +100,10 @@ const plans = {
       id: "starter-yearly",
       name: "Plan Básico",
       description: "Ideal para microempresas (1-15 empleados)",
-      price: 8099,
+      price: 9169,
       originalPrice: 10788,
       billingPeriod: "año",
-      savings: "25%",
+      savings: "15%",
       maxEmployees: 15,
       maxEvaluations: 600,
       popular: false,
@@ -125,10 +125,10 @@ const plans = {
       id: "professional-yearly",
       name: "Plan Profesional",
       description: "Para pequeñas empresas (16-50 empleados)", 
-      price: 17099,
+      price: 19369,
       originalPrice: 22788,
       billingPeriod: "año",
-      savings: "25%",
+      savings: "15%",
       maxEmployees: 50,
       maxEvaluations: 2400,
       popular: true,
@@ -152,10 +152,10 @@ const plans = {
       id: "enterprise-yearly",
       name: "Plan Empresarial",
       description: "Para medianas y grandes empresas (50+ empleados)",
-      price: 31499,
+      price: 35689,
       originalPrice: 41988,
       billingPeriod: "año", 
-      savings: "25%",
+      savings: "15%",
       maxEmployees: 500,
       maxEvaluations: 12000,
       popular: false,
@@ -276,7 +276,7 @@ export default function SubscriptionPlans() {
               </span>
               {isYearly && (
                 <Badge variant="secondary" className="bg-green-100 text-green-700">
-                  Ahorra 25%
+                  Ahorra 15%
                 </Badge>
               )}
             </div>
