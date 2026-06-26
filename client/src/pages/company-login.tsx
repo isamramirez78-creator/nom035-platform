@@ -2,18 +2,16 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
-import { Link, useLocation } from "wouter";
+import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
 import { loginCompanySchema, type LoginCompany } from "@shared/schema";
 import { Eye, EyeOff, Building2, Shield, CheckCircle } from "lucide-react";
 
 export default function CompanyLogin() {
-  const [, setLocation] = useLocation();
   const [showPassword, setShowPassword] = useState(false);
   const { toast } = useToast();
 
@@ -27,21 +25,25 @@ export default function CompanyLogin() {
 
   const loginMutation = useMutation({
     mutationFn: async (data: LoginCompany) => {
-      return await apiRequest("POST", "/api/companies/login", data);
+      const res = await fetch("/api/companies/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message || "Credenciales incorrectas");
+      return json;
     },
-    onSuccess: (response) => {
+    onSuccess: (data) => {
+      if (data.token) {
+        localStorage.setItem("company_token", data.token);
+      }
       toast({
         title: "Inicio de sesión exitoso",
         description: "Bienvenido al sistema de gestión NOM-035",
       });
-      
-      // Store auth token in localStorage if provided
-      if (response.token) {
-        localStorage.setItem('company_token', response.token);
-      }
-      
-      // Redirect to dashboard
-      setLocation("/dashboard");
+      // Recarga completa para que ProtectedRoute detecte el token
+      window.location.href = "/dashboard";
     },
     onError: (error: Error) => {
       toast({
@@ -75,37 +77,20 @@ export default function CompanyLogin() {
           </div>
 
           <div className="space-y-6">
-            <div className="flex items-start space-x-4">
-              <CheckCircle className="h-6 w-6 text-green-600 mt-1 flex-shrink-0" />
-              <div>
-                <h3 className="font-semibold text-gray-900">Cumplimiento Total</h3>
-                <p className="text-gray-600">Implementación completa de todos los requerimientos de la NOM-035-STPS-2018</p>
+            {[
+              { title: "Cumplimiento Total", desc: "Implementación completa de todos los requerimientos de la NOM-035-STPS-2018" },
+              { title: "Evaluaciones Oficiales", desc: "Cuestionarios oficiales de las Guías de Referencia con cálculo automático de riesgos" },
+              { title: "Reportes y Seguimiento", desc: "Generación de reportes oficiales y seguimiento de intervenciones requeridas" },
+              { title: "Gestión Multi-tenant", desc: "Datos seguros y aislados por empresa con control de acceso completo" },
+            ].map((item) => (
+              <div key={item.title} className="flex items-start space-x-4">
+                <CheckCircle className="h-6 w-6 text-green-600 mt-1 flex-shrink-0" />
+                <div>
+                  <h3 className="font-semibold text-gray-900">{item.title}</h3>
+                  <p className="text-gray-600">{item.desc}</p>
+                </div>
               </div>
-            </div>
-            
-            <div className="flex items-start space-x-4">
-              <CheckCircle className="h-6 w-6 text-green-600 mt-1 flex-shrink-0" />
-              <div>
-                <h3 className="font-semibold text-gray-900">Evaluaciones Oficiales</h3>
-                <p className="text-gray-600">Cuestionarios oficiales de las Guías de Referencia con cálculo automático de riesgos</p>
-              </div>
-            </div>
-            
-            <div className="flex items-start space-x-4">
-              <CheckCircle className="h-6 w-6 text-green-600 mt-1 flex-shrink-0" />
-              <div>
-                <h3 className="font-semibold text-gray-900">Reportes y Seguimiento</h3>
-                <p className="text-gray-600">Generación de reportes oficiales y seguimiento de intervenciones requeridas</p>
-              </div>
-            </div>
-            
-            <div className="flex items-start space-x-4">
-              <CheckCircle className="h-6 w-6 text-green-600 mt-1 flex-shrink-0" />
-              <div>
-                <h3 className="font-semibold text-gray-900">Gestión Multi-tenant</h3>
-                <p className="text-gray-600">Datos seguros y aislados por empresa con control de acceso completo</p>
-              </div>
-            </div>
+            ))}
           </div>
         </div>
 
@@ -133,11 +118,7 @@ export default function CompanyLogin() {
                     <FormItem>
                       <FormLabel>Correo Electrónico</FormLabel>
                       <FormControl>
-                        <Input
-                          type="email"
-                          placeholder="empresa@ejemplo.com"
-                          {...field}
-                        />
+                        <Input type="email" placeholder="empresa@ejemplo.com" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -164,11 +145,7 @@ export default function CompanyLogin() {
                             className="absolute right-0 top-0 h-full px-3 py-2"
                             onClick={() => setShowPassword(!showPassword)}
                           >
-                            {showPassword ? (
-                              <EyeOff className="h-4 w-4" />
-                            ) : (
-                              <Eye className="h-4 w-4" />
-                            )}
+                            {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                           </Button>
                         </div>
                       </FormControl>
@@ -177,11 +154,7 @@ export default function CompanyLogin() {
                   )}
                 />
 
-                <Button
-                  type="submit"
-                  className="w-full"
-                  disabled={loginMutation.isPending}
-                >
+                <Button type="submit" className="w-full" disabled={loginMutation.isPending}>
                   {loginMutation.isPending ? "Iniciando sesión..." : "Iniciar Sesión"}
                 </Button>
               </form>
@@ -189,11 +162,8 @@ export default function CompanyLogin() {
 
             <div className="mt-6 space-y-4">
               <div className="text-center">
-                <Link href="/company-forgot-password" className="text-sm text-blue-600 hover:underline">
-                  ¿Olvidó su contraseña?
-                </Link>
+                <span className="text-sm text-gray-400">¿Olvidó su contraseña?</span>
               </div>
-              
               <div className="relative">
                 <div className="absolute inset-0 flex items-center">
                   <span className="w-full border-t" />
@@ -202,7 +172,6 @@ export default function CompanyLogin() {
                   <span className="bg-white px-2 text-gray-500">O</span>
                 </div>
               </div>
-
               <div className="text-center">
                 <p className="text-sm text-gray-600">
                   ¿No tiene una cuenta?{" "}
@@ -213,15 +182,9 @@ export default function CompanyLogin() {
               </div>
             </div>
 
-            <div className="mt-6 pt-6 border-t border-gray-200">
-              <div className="text-center">
-                <p className="text-xs text-gray-500">
-                  Sistema certificado para cumplimiento de
-                </p>
-                <p className="text-xs font-semibold text-gray-700 mt-1">
-                  NOM-035-STPS-2018
-                </p>
-              </div>
+            <div className="mt-6 pt-6 border-t border-gray-200 text-center">
+              <p className="text-xs text-gray-500">Sistema certificado para cumplimiento de</p>
+              <p className="text-xs font-semibold text-gray-700 mt-1">NOM-035-STPS-2018</p>
             </div>
           </CardContent>
         </Card>
