@@ -10,14 +10,22 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Eye, Download, Upload, FileText, HelpCircle } from "lucide-react";
-import { downloadCSVTemplate, getCSVInstructions } from "@/utils/csv-template-generator";
+import { Eye, Download, FileText } from "lucide-react";
+import { useIndividualReport } from "@/hooks/use-individual-report";
 import type { Employee } from "@shared/schema";
 
 export default function Employees() {
   const [searchTerm, setSearchTerm] = useState("");
   const [areaFilter, setAreaFilter] = useState("all");
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
+  const [generatingReportId, setGeneratingReportId] = useState<number | null>(null);
+  const { generateReport } = useIndividualReport();
+
+  const handleGenerateReport = async (employeeId: number) => {
+    setGeneratingReportId(employeeId);
+    await generateReport(employeeId);
+    setGeneratingReportId(null);
+  };
   const { toast } = useToast();
 
   const { data: employees = [], isLoading } = useQuery<Employee[]>({
@@ -262,41 +270,43 @@ export default function Employees() {
                             );
                           })()}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          <Link href={`/employees/${employee.id}`}>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="text-blue-600 hover:text-blue-500 mr-3"
-                            >
-                              <Eye className="h-4 w-4 mr-1" />
-                              Ver Expediente
-                            </Button>
-                          </Link>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setEditingEmployee(employee)}
-                            className="text-brand-600 hover:text-brand-500 mr-3"
-                          >
-                            Editar
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => window.location.href = '/questionnaires'}
-                            className="text-amber-600 hover:text-amber-500 mr-3"
-                          >
-                            Evaluar
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => deleteEmployeeMutation.mutate(employee.id)}
-                            className="text-red-600 hover:text-red-500"
-                          >
-                            Eliminar
-                          </Button>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm font-medium">
+                          <div className="flex items-center gap-1 flex-wrap">
+                            <Link href={`/employees/${employee.id}`}>
+                              <button className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors"
+                                style={{ background: "#EFF6FF", color: "#1E3A5F" }}
+                                onMouseEnter={e=>(e.currentTarget.style.background="#DBEAFE")}
+                                onMouseLeave={e=>(e.currentTarget.style.background="#EFF6FF")}>
+                                <Eye className="h-3 w-3" /> Ver
+                              </button>
+                            </Link>
+                            <button
+                              onClick={() => setEditingEmployee(employee)}
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors"
+                              style={{ background: "#F1F5F9", color: "#475569" }}
+                              onMouseEnter={e=>(e.currentTarget.style.background="#E2E8F0")}
+                              onMouseLeave={e=>(e.currentTarget.style.background="#F1F5F9")}>
+                              Editar
+                            </button>
+                            <button
+                              onClick={() => handleGenerateReport(employee.id)}
+                              disabled={generatingReportId === employee.id}
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-60"
+                              style={{ background: "#ECFCCB", color: "#3F6212" }}
+                              onMouseEnter={e=>{ if(generatingReportId!==employee.id) e.currentTarget.style.background="#D9F99D" }}
+                              onMouseLeave={e=>(e.currentTarget.style.background="#ECFCCB")}>
+                              <FileText className="h-3 w-3" />
+                              {generatingReportId === employee.id ? "..." : "Reporte"}
+                            </button>
+                            <button
+                              onClick={() => deleteEmployeeMutation.mutate(employee.id)}
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors"
+                              style={{ background: "#FEE2E2", color: "#991B1B" }}
+                              onMouseEnter={e=>(e.currentTarget.style.background="#FECACA")}
+                              onMouseLeave={e=>(e.currentTarget.style.background="#FEE2E2")}>
+                              Eliminar
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}

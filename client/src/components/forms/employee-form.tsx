@@ -1,291 +1,228 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
-import { insertEmployeeSchema, type InsertEmployee, type Employee } from "@shared/schema";
+import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
+
+const employeeFormSchema = z.object({
+  nombre:           z.string().min(2, "El nombre es requerido"),
+  apellidoPaterno:  z.string().min(2, "El apellido paterno es requerido"),
+  apellidoMaterno:  z.string().optional().or(z.literal("")),
+  numeroEmpleado:   z.string().optional().or(z.literal("")),
+  puesto:           z.string().min(2, "El puesto es requerido"),
+  area:             z.string().min(2, "El área es requerida"),
+  fechaIngreso:     z.string().min(1, "La fecha de ingreso es requerida"),
+  email:            z.string().email("Email inválido").optional().or(z.literal("")),
+  genero:           z.string().optional().or(z.literal("")),
+  generacion:       z.string().optional().or(z.literal("")),
+  rfc:              z.string().regex(/^[A-ZÑ&]{3,4}\d{6}[A-Z0-9]{3}$/i, "RFC inválido").optional().or(z.literal("")),
+  curp:             z.string().regex(/^[A-Z]{4}\d{6}[HM][A-Z]{5}[A-Z0-9]\d$/i, "CURP inválida").optional().or(z.literal("")),
+});
+
+type EmployeeFormData = z.infer<typeof employeeFormSchema>;
 
 interface EmployeeFormProps {
-  employee?: Employee | null;
+  employee?: any;
   onSuccess?: () => void;
 }
 
 export default function EmployeeForm({ employee, onSuccess }: EmployeeFormProps) {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
-  
-  const form = useForm<InsertEmployee>({
-    resolver: zodResolver(insertEmployeeSchema),
+  const queryClient = useQueryClient();
+
+  // Separar apellidos existentes si vienen en campo unificado
+  const apellidoPaterno = employee?.apellidoPaterno || employee?.apellido_paterno
+    || (employee?.apellidos ? employee.apellidos.split(" ")[0] : "");
+  const apellidoMaterno = employee?.apellidoMaterno || employee?.apellido_materno
+    || (employee?.apellidos ? employee.apellidos.split(" ").slice(1).join(" ") : "");
+
+  const form = useForm<EmployeeFormData>({
+    resolver: zodResolver(employeeFormSchema),
     defaultValues: {
-      nombre: employee?.nombre || "",
-      apellidos: employee?.apellidos || "",
-      puesto: employee?.puesto || "",
-      area: employee?.area || "",
-      fechaIngreso: employee?.fechaIngreso || "",
-      email: employee?.email || "",
-      genero: (employee as any)?.genero || "",
-      generacion: (employee as any)?.generacion || "",
+      nombre:          employee?.nombre          || "",
+      apellidoPaterno: apellidoPaterno,
+      apellidoMaterno: apellidoMaterno,
+      numeroEmpleado:  employee?.numeroEmpleado  || employee?.numero_empleado || "",
+      puesto:          employee?.puesto          || "",
+      area:            employee?.area            || "",
+      fechaIngreso:    employee?.fechaIngreso    || employee?.fecha_ingreso || "",
+      email:           employee?.email           || "",
+      genero:          employee?.genero          || "",
+      generacion:      employee?.generacion      || "",
+      rfc:             employee?.rfc             || "",
+      curp:            employee?.curp            || "",
     },
   });
 
-  const createEmployeeMutation = useMutation({
-    mutationFn: async (data: InsertEmployee) => {
-      const response = await apiRequest("POST", "/api/employees", data);
-      return response.json();
+  const token = localStorage.getItem("company_token");
+  const headers = {
+    "Content-Type": "application/json",
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+
+  const saveMutation = useMutation({
+    mutationFn: async (data: EmployeeFormData) => {
+      const payload = {
+        nombre:          data.nombre,
+        apellidos:       `${data.apellidoPaterno}${data.apellidoMaterno ? " " + data.apellidoMaterno : ""}`,
+        apellidoPaterno: data.apellidoPaterno,
+        apellidoMaterno: data.apellidoMaterno || null,
+        numeroEmpleado:  data.numeroEmpleado  || null,
+        puesto:          data.puesto,
+        area:            data.area,
+        fechaIngreso:    data.fechaIngreso,
+        email:           data.email           || null,
+        genero:          data.genero          || null,
+        generacion:      data.generacion      || null,
+        rfc:             data.rfc             ? data.rfc.toUpperCase() : null,
+        curp:            data.curp            ? data.curp.toUpperCase() : null,
+      };
+
+      const url    = employee ? `/api/employees/${employee.id}` : "/api/employees";
+      const method = employee ? "PUT" : "POST";
+
+      const res = await fetch(url, { method, headers, body: JSON.stringify(payload) });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message || "Error al guardar el empleado");
+      return json;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/employees"] });
       queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
-      form.reset();
       toast({
-        title: "Éxito",
-        description: "Empleado registrado correctamente",
+        title: employee ? "Empleado actualizado" : "Empleado registrado",
+        description: "Los datos se guardaron correctamente.",
       });
       onSuccess?.();
     },
-    onError: (error: any) => {
-      const isLimitError = error?.message?.includes('Límite de empleados') || error?.limit;
-      if (isLimitError) {
-        toast({
-          title: "Límite de empleados alcanzado",
-          description: "Tu plan actual no permite más empleados. Actualiza tu plan para continuar.",
-          variant: "destructive",
-          action: (
-            <button
-              onClick={() => setLocation("/subscription-plans")}
-              style={{
-                background: "#1E3A5F", color: "white", padding: "6px 12px",
-                borderRadius: "6px", fontSize: "12px", fontWeight: 600,
-                border: "none", cursor: "pointer", whiteSpace: "nowrap"
-              }}
-            >
-              Ver planes
-            </button>
-          ),
-        });
-      } else {
-        toast({
-          title: "Error",
-          description: error.message || "No se pudo registrar el empleado",
-          variant: "destructive",
-        });
-      }
-    },
-  });
-
-  const updateEmployeeMutation = useMutation({
-    mutationFn: async (data: InsertEmployee) => {
-      const response = await apiRequest("PUT", `/api/employees/${employee!.id}`, data);
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/employees"] });
+    onError: (error: Error) => {
+      const isLimit = error.message?.includes("Límite");
       toast({
-        title: "Éxito",
-        description: "Empleado actualizado correctamente",
-      });
-      onSuccess?.();
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: error.message || "No se pudo actualizar el empleado",
+        title: isLimit ? "Límite de empleados alcanzado" : "Error al guardar",
+        description: isLimit
+          ? "Actualiza tu plan para agregar más empleados."
+          : error.message,
         variant: "destructive",
       });
     },
   });
 
-  const onSubmit = (data: InsertEmployee) => {
-    if (employee) {
-      updateEmployeeMutation.mutate(data);
-    } else {
-      createEmployeeMutation.mutate(data);
-    }
-  };
+  const onSubmit = (data: EmployeeFormData) => saveMutation.mutate(data);
 
-  const handleClearForm = () => {
-    form.reset();
-    onSuccess?.();
-  };
+  const Field = ({ name, label, placeholder, required, uppercase }: {
+    name: keyof EmployeeFormData; label: string; placeholder?: string;
+    required?: boolean; uppercase?: boolean;
+  }) => (
+    <FormField control={form.control} name={name} render={({ field }) => (
+      <FormItem>
+        <FormLabel>{label}{required && <span className="text-red-500 ml-1">*</span>}
+          {!required && <span className="text-slate-400 text-xs ml-1">(opcional)</span>}
+        </FormLabel>
+        <FormControl>
+          <Input
+            placeholder={placeholder}
+            {...field}
+            value={field.value ?? ""}
+            onChange={e => field.onChange(uppercase ? e.target.value.toUpperCase() : e.target.value)}
+          />
+        </FormControl>
+        <FormMessage />
+      </FormItem>
+    )} />
+  );
 
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-        <FormField
-          control={form.control}
-          name="nombre"
-          render={({ field }) => (
+
+        {/* Nombre y apellidos */}
+        <div className="grid grid-cols-1 gap-4">
+          <Field name="nombre" label="Nombre(s)" placeholder="Ej: Juan Carlos" required />
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <Field name="apellidoPaterno" label="Apellido Paterno" placeholder="Ej: García" required />
+          <Field name="apellidoMaterno" label="Apellido Materno" placeholder="Ej: López" />
+        </div>
+
+        {/* Número de empleado */}
+        <Field name="numeroEmpleado" label="Número de Empleado" placeholder="Ej: EMP-001" />
+
+        {/* Puesto y área */}
+        <div className="grid grid-cols-2 gap-4">
+          <Field name="puesto" label="Puesto / Cargo" placeholder="Ej: Analista" required />
+          <Field name="area" label="Área / Departamento" placeholder="Ej: Finanzas" required />
+        </div>
+
+        {/* Fecha y email */}
+        <div className="grid grid-cols-2 gap-4">
+          <FormField control={form.control} name="fechaIngreso" render={({ field }) => (
             <FormItem>
-              <FormLabel>Nombre(s) *</FormLabel>
-              <FormControl>
-                <Input placeholder="Ej. Juan Carlos" {...field} />
-              </FormControl>
+              <FormLabel>Fecha de Ingreso <span className="text-red-500">*</span></FormLabel>
+              <FormControl><Input type="date" {...field} value={field.value ?? ""} /></FormControl>
               <FormMessage />
             </FormItem>
-          )}
-        />
-        
-        <FormField
-          control={form.control}
-          name="apellidos"
-          render={({ field }) => (
+          )} />
+          <Field name="email" label="Correo Electrónico" placeholder="empleado@empresa.com" />
+        </div>
+
+        {/* Género y Generación */}
+        <div className="grid grid-cols-2 gap-4">
+          <FormField control={form.control} name="genero" render={({ field }) => (
             <FormItem>
-              <FormLabel>Apellidos *</FormLabel>
-              <FormControl>
-                <Input placeholder="Ej. García López" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        
-        <FormField
-          control={form.control}
-          name="puesto"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Puesto *</FormLabel>
-              <FormControl>
-                <Input placeholder="Ej. Analista de Recursos Humanos" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        
-        <FormField
-          control={form.control}
-          name="area"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Área/Departamento *</FormLabel>
-              <Select onValueChange={field.onChange} value={field.value}>
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar área" />
-                  </SelectTrigger>
-                </FormControl>
+              <FormLabel>Género <span className="text-slate-400 text-xs">(opcional)</span></FormLabel>
+              <Select onValueChange={field.onChange} value={field.value || ""}>
+                <FormControl><SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger></FormControl>
                 <SelectContent>
-                  <SelectItem value="Recursos Humanos">Recursos Humanos</SelectItem>
-                  <SelectItem value="Tecnología">Tecnología</SelectItem>
-                  <SelectItem value="Comercial">Comercial</SelectItem>
-                  <SelectItem value="Operaciones">Operaciones</SelectItem>
-                  <SelectItem value="Finanzas">Finanzas</SelectItem>
-                  <SelectItem value="Administración">Administración</SelectItem>
+                  <SelectItem value="Masculino">Masculino</SelectItem>
+                  <SelectItem value="Femenino">Femenino</SelectItem>
+                  <SelectItem value="No binario">No binario</SelectItem>
+                  <SelectItem value="Prefiero no decir">Prefiero no decir</SelectItem>
                 </SelectContent>
               </Select>
               <FormMessage />
             </FormItem>
-          )}
-        />
-        
-        <FormField
-          control={form.control}
-          name="fechaIngreso"
-          render={({ field }) => (
+          )} />
+          <FormField control={form.control} name="generacion" render={({ field }) => (
             <FormItem>
-              <FormLabel>Fecha de Ingreso *</FormLabel>
-              <FormControl>
-                <Input type="date" {...field} />
-              </FormControl>
+              <FormLabel>Generación <span className="text-slate-400 text-xs">(opcional)</span></FormLabel>
+              <Select onValueChange={field.onChange} value={field.value || ""}>
+                <FormControl><SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger></FormControl>
+                <SelectContent>
+                  <SelectItem value="Baby Boomers">Baby Boomers (1946–1964)</SelectItem>
+                  <SelectItem value="Generación X">Generación X (1965–1980)</SelectItem>
+                  <SelectItem value="Millennials">Millennials (1981–1996)</SelectItem>
+                  <SelectItem value="Generación Z">Generación Z (1997–2012)</SelectItem>
+                </SelectContent>
+              </Select>
               <FormMessage />
             </FormItem>
-          )}
-        />
-        
-        <FormField
-          control={form.control}
-          name="email"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Correo Electrónico</FormLabel>
-              <FormControl>
-                <Input type="email" placeholder="Ej. juan.garcia@empresa.com" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        
-        <div className="grid grid-cols-2 gap-4">
-          <FormField
-            control={form.control}
-            name={"genero" as any}
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Género <span className="text-slate-400 font-normal text-xs">(opcional)</span></FormLabel>
-                <Select onValueChange={field.onChange} value={field.value || ""}>
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Seleccionar" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    <SelectItem value="Masculino">Masculino</SelectItem>
-                    <SelectItem value="Femenino">Femenino</SelectItem>
-                    <SelectItem value="No binario">No binario</SelectItem>
-                    <SelectItem value="Prefiero no decir">Prefiero no decir</SelectItem>
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name={"generacion" as any}
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Generación <span className="text-slate-400 font-normal text-xs">(opcional)</span></FormLabel>
-                <Select onValueChange={field.onChange} value={field.value || ""}>
-                  <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Seleccionar" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    <SelectItem value="Baby Boomers">Baby Boomers (1946–1964)</SelectItem>
-                    <SelectItem value="Generación X">Generación X (1965–1980)</SelectItem>
-                    <SelectItem value="Millennials">Millennials (1981–1996)</SelectItem>
-                    <SelectItem value="Generación Z">Generación Z (1997–2012)</SelectItem>
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          )} />
         </div>
 
-        <div className="flex space-x-3 mt-6">
-          <Button 
-            type="submit" 
-            className="flex-1 bg-brand-600 hover:bg-brand-700"
-            disabled={createEmployeeMutation.isPending || updateEmployeeMutation.isPending}
-          >
-            {(createEmployeeMutation.isPending || updateEmployeeMutation.isPending) ? (
-              <>
-                <i className="fas fa-spinner fa-spin mr-2"></i>
-                Guardando...
-              </>
-            ) : (
-              <>
-                <i className="fas fa-save mr-2"></i>
-                {employee ? "Actualizar" : "Guardar"}
-              </>
-            )}
+        {/* RFC y CURP */}
+        <div className="grid grid-cols-2 gap-4">
+          <Field name="rfc" label="RFC" placeholder="AAAA000000AAA" uppercase />
+          <Field name="curp" label="CURP" placeholder="AAAA000000HAAAAA00" uppercase />
+        </div>
+
+        {/* Botones */}
+        <div className="flex gap-3 pt-2">
+          <Button type="submit" disabled={saveMutation.isPending} className="flex-1">
+            {saveMutation.isPending ? "Guardando..." : employee ? "Actualizar Empleado" : "Registrar Empleado"}
           </Button>
-          <Button type="button" variant="outline" onClick={handleClearForm}>
-            {employee ? "Cancelar" : "Limpiar"}
+          <Button type="button" variant="outline" onClick={() => onSuccess?.()}>
+            Cancelar
           </Button>
         </div>
       </form>
     </Form>
   );
 }
+EOFTS
+echo "✅ employee-form.tsx — $(wc -l < /tmp/employee-form-new.tsx) líneas"

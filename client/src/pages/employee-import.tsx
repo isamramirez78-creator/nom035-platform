@@ -1,523 +1,209 @@
 import { useState, useRef } from "react";
-import { useMutation } from "@tanstack/react-query";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Progress } from "@/components/ui/progress";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { 
-  Download, 
-  Upload, 
-  FileText, 
-  CheckCircle, 
-  AlertTriangle, 
-  Users,
-  FileSpreadsheet,
-  Info
-} from "lucide-react";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-
-interface ImportResult {
-  total: number;
-  successful: number;
-  errors: Array<{
-    row: number;
-    error: string;
-    data: any;
-  }>;
-}
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function EmployeeImport() {
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [importResult, setImportResult] = useState<ImportResult | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [preview, setPreview] = useState<any[]>([]);
+  const [fileName, setFileName] = useState("");
 
-  const downloadTemplateMutation = useMutation({
-    mutationFn: async (format: 'excel' | 'csv') => {
-      const token = localStorage.getItem('company_token');
-      const response = await fetch(`/api/employees/template/${format}`, {
-        headers: token ? { 'Authorization': `Bearer ${token}` } : {},
-      });
-      if (!response.ok) {
-        const err = await response.json().catch(() => ({ message: 'Error al descargar' }));
-        throw new Error(err.message || 'Error al descargar la plantilla');
-      }
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `plantilla-empleados.${format === 'excel' ? 'xlsx' : 'csv'}`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-    },
-    onSuccess: () => {
-      toast({
-        title: "Descarga iniciada",
-        description: "La plantilla se está descargando.",
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error al descargar",
-        description: error?.message || "No se pudo descargar la plantilla. Intenta de nuevo.",
-        variant: "destructive",
-      });
-    },
-  });
+  const token = localStorage.getItem("company_token");
+  const headers = { ...(token ? { Authorization: `Bearer ${token}` } : {}) };
 
-  const uploadEmployeesMutation = useMutation({
-    mutationFn: async (file: File) => {
-      const formData = new FormData();
-      formData.append('file', file);
-      
-      const response = await fetch('/api/employees/import', {
-        method: 'POST',
-        body: formData,
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Error uploading file');
-      }
-      
-      return response.json();
-    },
-    onSuccess: (result: ImportResult) => {
-      setImportResult(result);
-      setUploadProgress(100);
-      
-      if (result.errors.length === 0) {
-        toast({
-          title: "Importación exitosa",
-          description: `Se importaron ${result.successful} empleados correctamente.`,
-        });
+  // Descargar plantilla
+  const downloadTemplate = async (format: "excel" | "csv") => {
+    const res = await fetch(`/api/employees/template/${format}`, { headers });
+    if (!res.ok) { toast({ title: "Error al descargar plantilla", variant: "destructive" }); return; }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `plantilla-empleados.${format === "excel" ? "xlsx" : "csv"}`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // Parsear CSV en el navegador
+  const parseCSV = (text: string) => {
+    const lines = text.split("\n").filter(l => l.trim() && !l.startsWith("#"));
+    if (lines.length < 2) return [];
+    const headers = lines[0].split(",").map(h => h.trim().toLowerCase().replace(/\s+/g, "_"));
+    return lines.slice(1).map(line => {
+      const vals = line.split(",").map(v => v.trim().replace(/^"|"$/g, ""));
+      const obj: any = {};
+      headers.forEach((h, i) => { obj[h] = vals[i] || ""; });
+      return obj;
+    }).filter(r => r.nombre);
+  };
+
+  // Leer archivo seleccionado
+  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setFileName(file.name);
+
+    if (file.name.endsWith(".csv")) {
+      const text = await file.text();
+      setPreview(parseCSV(text).slice(0, 5));
+    } else if (file.name.endsWith(".xlsx")) {
+      // Para xlsx usamos el endpoint del servidor para parsear
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/employees/preview-import", { method: "POST", headers, body: fd });
+      if (res.ok) {
+        const data = await res.json();
+        setPreview((data.preview || []).slice(0, 5));
       } else {
-        toast({
-          title: "Importación parcial",
-          description: `${result.successful} empleados importados, ${result.errors.length} errores encontrados.`,
-          variant: "destructive",
-        });
-      }
-      
-      queryClient.invalidateQueries({ queryKey: ['/api/employees'] });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error en la importación",
-        description: error.message || "No se pudo procesar el archivo",
-        variant: "destructive",
-      });
-      setUploadProgress(0);
-    },
-  });
-
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      const allowedTypes = [
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
-        'application/vnd.ms-excel', // .xls
-        'text/csv' // .csv
-      ];
-      
-      if (allowedTypes.includes(file.type) || file.name.endsWith('.csv')) {
-        setSelectedFile(file);
-        setImportResult(null);
-        setUploadProgress(0);
-      } else {
-        toast({
-          title: "Formato no válido",
-          description: "Solo se permiten archivos Excel (.xlsx, .xls) o CSV (.csv)",
-          variant: "destructive",
-        });
+        toast({ title: "No se pudo leer el archivo Excel", description: "Usa la plantilla CSV", variant: "destructive" });
       }
     }
   };
 
-  const handleUpload = () => {
-    if (!selectedFile) return;
-    
-    setUploadProgress(10);
-    uploadEmployeesMutation.mutate(selectedFile);
-  };
+  // Importar empleados
+  const importMutation = useMutation({
+    mutationFn: async () => {
+      const file = fileRef.current?.files?.[0];
+      if (!file) throw new Error("Selecciona un archivo primero");
 
-  const resetUpload = () => {
-    setSelectedFile(null);
-    setImportResult(null);
-    setUploadProgress(0);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
+      if (file.name.endsWith(".csv")) {
+        const text = await file.text();
+        const employees = parseCSV(text);
+        if (!employees.length) throw new Error("El archivo no contiene empleados válidos");
+
+        const res = await fetch("/api/employees/import", {
+          method: "POST",
+          headers: { ...headers, "Content-Type": "application/json" },
+          body: JSON.stringify({ employees }),
+        });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.message || "Error al importar");
+        return json;
+      } else {
+        const fd = new FormData();
+        fd.append("file", file);
+        const res = await fetch("/api/employees/import-excel", { method: "POST", headers, body: fd });
+        const json = await res.json();
+        if (!res.ok) throw new Error(json.message || "Error al importar");
+        return json;
+      }
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/employees"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
+      setPreview([]);
+      setFileName("");
+      if (fileRef.current) fileRef.current.value = "";
+      toast({
+        title: "Importación exitosa",
+        description: `${data.imported || 0} empleados importados${data.errors > 0 ? `, ${data.errors} con errores` : ""}.`,
+      });
+    },
+    onError: (e: Error) => {
+      toast({ title: "Error al importar", description: e.message, variant: "destructive" });
+    },
+  });
+
+  const COL_LABELS: Record<string, string> = {
+    nombre: "Nombre", apellido_paterno: "Ap. Paterno", apellido_materno: "Ap. Materno",
+    apellidos: "Apellidos", numero_empleado: "No. Empleado", puesto: "Puesto",
+    area: "Área", fecha_ingreso: "Fecha Ingreso", email: "Email",
+    rfc: "RFC", curp: "CURP", genero: "Género", generacion: "Generación",
   };
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900">Importación de Empleados</h1>
-        <p className="text-gray-600 mt-1">
-          Descarga plantillas y carga empleados en lote usando Excel o CSV
-        </p>
+    <div className="page-container space-y-6">
+      <div className="flex items-center gap-3">
+        <div style={{ width: 3, height: "2.5rem", background: "#84CC16", borderRadius: 2 }} />
+        <div>
+          <h1 className="page-title">Importar Empleados</h1>
+          <p className="page-subtitle">Carga masiva desde archivo Excel o CSV</p>
+        </div>
       </div>
 
-      <Tabs defaultValue="download" className="space-y-6">
-        <TabsList>
-          <TabsTrigger value="download">Descargar Plantillas</TabsTrigger>
-          <TabsTrigger value="upload">Cargar Empleados</TabsTrigger>
-          <TabsTrigger value="instructions">Instrucciones</TabsTrigger>
-        </TabsList>
-
-        {/* Download Templates Tab */}
-        <TabsContent value="download" className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <FileSpreadsheet className="w-5 h-5 mr-2 text-green-600" />
-                  Plantilla Excel
-                </CardTitle>
-                <CardDescription>
-                  Archivo .xlsx con formato y validaciones incluidas
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <h4 className="font-medium">Características:</h4>
-                  <ul className="text-sm text-gray-600 space-y-1">
-                    <li>• Columnas pre-configuradas</li>
-                    <li>• Validación de datos automática</li>
-                    <li>• Lista desplegable para áreas</li>
-                    <li>• Formato de fecha establecido</li>
-                    <li>• Instrucciones incluidas</li>
-                  </ul>
-                </div>
-                
-                <Button
-                  onClick={() => downloadTemplateMutation.mutate('excel')}
-                  disabled={downloadTemplateMutation.isPending}
-                  className="w-full"
-                >
-                  {downloadTemplateMutation.isPending ? (
-                    <>
-                      <div className="animate-spin w-4 h-4 mr-2 border-2 border-white border-t-transparent rounded-full" />
-                      Descargando...
-                    </>
-                  ) : (
-                    <>
-                      <Download className="w-4 h-4 mr-2" />
-                      Descargar Excel
-                    </>
-                  )}
-                </Button>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <FileText className="w-5 h-5 mr-2 text-blue-600" />
-                  Plantilla CSV
-                </CardTitle>
-                <CardDescription>
-                  Archivo .csv compatible con cualquier hoja de cálculo
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <h4 className="font-medium">Características:</h4>
-                  <ul className="text-sm text-gray-600 space-y-1">
-                    <li>• Formato estándar CSV</li>
-                    <li>• Compatible con Google Sheets</li>
-                    <li>• Codificación UTF-8</li>
-                    <li>• Separador de comas</li>
-                    <li>• Fácil de editar</li>
-                  </ul>
-                </div>
-                
-                <Button
-                  onClick={() => downloadTemplateMutation.mutate('csv')}
-                  disabled={downloadTemplateMutation.isPending}
-                  variant="outline"
-                  className="w-full"
-                >
-                  {downloadTemplateMutation.isPending ? (
-                    <>
-                      <div className="animate-spin w-4 h-4 mr-2 border-2 border-blue-600 border-t-transparent rounded-full" />
-                      Descargando...
-                    </>
-                  ) : (
-                    <>
-                      <Download className="w-4 h-4 mr-2" />
-                      Descargar CSV
-                    </>
-                  )}
-                </Button>
-              </CardContent>
-            </Card>
+      {/* Paso 1 — Descargar plantilla */}
+      <div className="section-card">
+        <div className="section-header"><div className="lime-dot" /><h3>Paso 1 — Descarga la plantilla</h3></div>
+        <div className="p-5">
+          <p className="text-sm text-slate-600 mb-4">
+            Usa nuestra plantilla para asegurarte de que los datos están en el formato correcto.
+            Incluye ejemplos y validaciones de formato.
+          </p>
+          <div className="flex gap-3 flex-wrap">
+            <Button onClick={() => downloadTemplate("excel")} className="btn-primary gap-2">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+              </svg>
+              Plantilla Excel (.xlsx)
+            </Button>
+            <Button variant="outline" onClick={() => downloadTemplate("csv")} className="gap-2">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+              </svg>
+              Plantilla CSV
+            </Button>
           </div>
+          <div className="mt-4 p-3 rounded-lg text-sm" style={{ background: "#FFFBEB", border: "1px solid #FDE68A" }}>
+            <strong>Columnas requeridas:</strong> nombre, apellido_paterno, puesto, area, fecha_ingreso (DD/MM/AAAA)<br/>
+            <strong>Columnas opcionales:</strong> apellido_materno, numero_empleado, email, rfc, curp, genero, generacion
+          </div>
+        </div>
+      </div>
 
-          <Alert>
-            <Info className="h-4 w-4" />
-            <AlertDescription>
-              <strong>Recomendación:</strong> Usa la plantilla Excel si necesitas validación automática de datos.
-              Usa CSV si prefieres un formato más simple o trabajas con Google Sheets.
-            </AlertDescription>
-          </Alert>
-        </TabsContent>
+      {/* Paso 2 — Seleccionar archivo */}
+      <div className="section-card">
+        <div className="section-header"><div className="lime-dot" /><h3>Paso 2 — Selecciona tu archivo</h3></div>
+        <div className="p-5">
+          <div
+            onClick={() => fileRef.current?.click()}
+            className="border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors"
+            style={{ borderColor: "#CBD5E1" }}
+            onMouseEnter={e => (e.currentTarget.style.borderColor = "#84CC16")}
+            onMouseLeave={e => (e.currentTarget.style.borderColor = "#CBD5E1")}
+          >
+            <svg className="mx-auto mb-3" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" strokeWidth="1.5">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+            {fileName
+              ? <p className="font-semibold text-slate-700">{fileName}</p>
+              : <><p className="font-medium text-slate-600">Haz clic para seleccionar o arrastra el archivo aquí</p>
+                <p className="text-sm text-slate-400 mt-1">Formatos: .xlsx, .csv</p></>
+            }
+          </div>
+          <input ref={fileRef} type="file" accept=".xlsx,.csv" className="hidden" onChange={handleFile} />
+        </div>
+      </div>
 
-        {/* Upload Employees Tab */}
-        <TabsContent value="upload" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Upload className="w-5 h-5 mr-2" />
-                Cargar Archivo de Empleados
-              </CardTitle>
-              <CardDescription>
-                Sube tu archivo Excel o CSV con los datos de empleados
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {!importResult ? (
-                <>
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="file">Seleccionar Archivo</Label>
-                      <Input
-                        ref={fileInputRef}
-                        id="file"
-                        type="file"
-                        accept=".xlsx,.xls,.csv"
-                        onChange={handleFileSelect}
-                        className="cursor-pointer"
-                      />
-                    </div>
-
-                    {selectedFile && (
-                      <div className="p-4 bg-blue-50 rounded-lg">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <h4 className="font-medium text-blue-900">{selectedFile.name}</h4>
-                            <p className="text-sm text-blue-700">
-                              Tamaño: {(selectedFile.size / 1024).toFixed(1)} KB
-                            </p>
-                          </div>
-                          <Button variant="outline" size="sm" onClick={resetUpload}>
-                            Cambiar
-                          </Button>
-                        </div>
-                      </div>
-                    )}
-
-                    {uploadProgress > 0 && uploadProgress < 100 && (
-                      <div className="space-y-2">
-                        <div className="flex justify-between text-sm">
-                          <span>Procesando archivo...</span>
-                          <span>{uploadProgress}%</span>
-                        </div>
-                        <Progress value={uploadProgress} />
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="flex gap-4">
-                    <Button
-                      onClick={handleUpload}
-                      disabled={!selectedFile || uploadEmployeesMutation.isPending}
-                      className="flex-1"
-                    >
-                      {uploadEmployeesMutation.isPending ? (
-                        <>
-                          <div className="animate-spin w-4 h-4 mr-2 border-2 border-white border-t-transparent rounded-full" />
-                          Procesando...
-                        </>
-                      ) : (
-                        <>
-                          <Upload className="w-4 h-4 mr-2" />
-                          Importar Empleados
-                        </>
-                      )}
-                    </Button>
-                    
-                    {selectedFile && (
-                      <Button variant="outline" onClick={resetUpload}>
-                        Cancelar
-                      </Button>
-                    )}
-                  </div>
-                </>
-              ) : (
-                <div className="space-y-6">
-                  {/* Import Results */}
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-lg font-medium">Resultados de la Importación</h3>
-                      <Button onClick={resetUpload} variant="outline">
-                        Nueva Importación
-                      </Button>
-                    </div>
-
-                    <div className="grid grid-cols-3 gap-4">
-                      <div className="text-center p-4 bg-blue-50 rounded-lg">
-                        <div className="text-2xl font-bold text-blue-600">{importResult.total}</div>
-                        <div className="text-sm text-gray-600">Total Registros</div>
-                      </div>
-                      
-                      <div className="text-center p-4 bg-green-50 rounded-lg">
-                        <div className="text-2xl font-bold text-green-600">{importResult.successful}</div>
-                        <div className="text-sm text-gray-600">Importados</div>
-                      </div>
-                      
-                      <div className="text-center p-4 bg-red-50 rounded-lg">
-                        <div className="text-2xl font-bold text-red-600">{importResult.errors.length}</div>
-                        <div className="text-sm text-gray-600">Errores</div>
-                      </div>
-                    </div>
-
-                    {importResult.successful > 0 && (
-                      <Alert>
-                        <CheckCircle className="h-4 w-4" />
-                        <AlertDescription>
-                          <strong>Éxito:</strong> {importResult.successful} empleados fueron importados correctamente.
-                        </AlertDescription>
-                      </Alert>
-                    )}
-
-                    {importResult.errors.length > 0 && (
-                      <Alert variant="destructive">
-                        <AlertTriangle className="h-4 w-4" />
-                        <AlertDescription>
-                          <strong>Errores encontrados:</strong> {importResult.errors.length} registros no pudieron ser procesados.
-                        </AlertDescription>
-                      </Alert>
-                    )}
-                  </div>
-
-                  {/* Error Details */}
-                  {importResult.errors.length > 0 && (
-                    <Card>
-                      <CardHeader>
-                        <CardTitle className="flex items-center">
-                          <AlertTriangle className="w-5 h-5 mr-2 text-red-600" />
-                          Detalles de Errores
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="space-y-3 max-h-60 overflow-y-auto">
-                          {importResult.errors.map((error, index) => (
-                            <div key={index} className="border-l-4 border-red-500 bg-red-50 p-3">
-                              <div className="flex justify-between items-start">
-                                <div>
-                                  <Badge variant="destructive" className="mb-2">
-                                    Fila {error.row}
-                                  </Badge>
-                                  <p className="text-sm text-red-800">{error.error}</p>
-                                  {error.data && (
-                                    <p className="text-xs text-red-600 mt-1">
-                                      Datos: {JSON.stringify(error.data)}
-                                    </p>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  )}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Instructions Tab */}
-        <TabsContent value="instructions" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Instrucciones de Uso</CardTitle>
-              <CardDescription>
-                Guía paso a paso para importar empleados correctamente
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="space-y-4">
-                <h3 className="text-lg font-medium">Paso 1: Descargar Plantilla</h3>
-                <ol className="list-decimal list-inside space-y-2 text-sm text-gray-700 ml-4">
-                  <li>Ve a la pestaña "Descargar Plantillas"</li>
-                  <li>Descarga la plantilla Excel o CSV según tu preferencia</li>
-                  <li>Abre el archivo en tu programa de hojas de cálculo favorito</li>
-                </ol>
-              </div>
-
-              <div className="space-y-4">
-                <h3 className="text-lg font-medium">Paso 2: Completar Datos</h3>
-                <div className="space-y-3">
-                  <p className="text-sm text-gray-700">Completa las siguientes columnas obligatorias:</p>
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <ul className="list-disc list-inside space-y-2 text-sm text-gray-700">
-                      <li><strong>nombre:</strong> Nombre(s) del empleado (ej: Juan Carlos)</li>
-                      <li><strong>apellidos:</strong> Apellidos completos (ej: Pérez García)</li>
-                      <li><strong>email:</strong> Correo electrónico válido y único (ej: juan.perez@empresa.com)</li>
-                      <li><strong>puesto:</strong> Cargo o posición específica (ej: Analista de Sistemas)</li>
-                      <li><strong>area:</strong> Departamento exacto del empleado</li>
-                      <li><strong>fechaIngreso:</strong> Fecha de contratación en formato DD/MM/AAAA (ej: 15/01/2024)</li>
-                    </ul>
-                  </div>
-                  
-                  <div className="bg-blue-50 p-4 rounded-lg">
-                    <h4 className="font-medium text-blue-900 mb-2">Áreas válidas disponibles:</h4>
-                    <div className="grid grid-cols-2 gap-2 text-sm text-blue-800">
-                      <div>• administracion</div>
-                      <div>• operaciones</div>
-                      <div>• ventas</div>
-                      <div>• recursos-humanos</div>
-                      <div>• finanzas</div>
-                      <div>• tecnologia</div>
-                      <div>• produccion</div>
-                    </div>
-                    <p className="text-xs text-blue-700 mt-2">
-                      Las áreas deben escribirse exactamente como se muestran arriba (en minúsculas, con guiones)
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <h3 className="text-lg font-medium">Paso 3: Cargar Archivo</h3>
-                <ol className="list-decimal list-inside space-y-2 text-sm text-gray-700 ml-4">
-                  <li>Ve a la pestaña "Cargar Empleados"</li>
-                  <li>Selecciona tu archivo completado</li>
-                  <li>Haz clic en "Importar Empleados"</li>
-                  <li>Espera a que se procese el archivo</li>
-                  <li>Revisa los resultados y errores si los hay</li>
-                </ol>
-              </div>
-
-              <Alert>
-                <Info className="h-4 w-4" />
-                <AlertDescription className="space-y-2">
-                  <strong>Consejos importantes:</strong>
-                  <ul className="list-disc list-inside space-y-1 text-sm mt-2">
-                    <li>No modifiques los nombres de las columnas</li>
-                    <li>No dejes filas vacías entre los datos</li>
-                    <li>Verifica que las fechas estén en formato correcto</li>
-                    <li>Los emails deben ser únicos para cada empleado</li>
-                    <li>Las áreas deben coincidir exactamente con las opciones válidas</li>
-                  </ul>
-                </AlertDescription>
-              </Alert>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+      {/* Vista previa */}
+      {preview.length > 0 && (
+        <div className="section-card">
+          <div className="section-header"><div className="lime-dot" /><h3>Vista previa (primeros {preview.length} registros)</h3></div>
+          <div className="overflow-x-auto">
+            <table className="data-table">
+              <thead>
+                <tr>{Object.keys(preview[0]).map(k => (
+                  <th key={k}>{COL_LABELS[k] || k}</th>
+                ))}</tr>
+              </thead>
+              <tbody>
+                {preview.map((row, i) => (
+                  <tr key={i}>{Object.values(row).map((v: any, j) => (
+                    <td key={j} className="text-sm">{v || "—"}</td>
+                  ))}</tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="p-5">
+            <Button onClick={() => importMutation.mutate()} disabled={importMutation.isPending} className="btn-lime gap-2">
+              {importMutation.isPending ? "Importando..." : "Confirmar e Importar"}
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

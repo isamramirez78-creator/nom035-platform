@@ -1,13 +1,10 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import ExcelJS from "exceljs";
 import { storage } from "./storage";
 import { emailService } from "./email-service";
 import { authenticateCompany, checkSubscriptionLimits, requireActiveSubscription } from "./auth";
 import { registerCompanyRoutes } from "./company-routes";
 import { stripeService } from "./stripe-service";
-import { mercadoPagoService } from "./mercadopago-service";
-import { companyStorage } from "./company-storage";
 import { 
   insertEmployeeSchema, 
   insertEvaluationSchema,
@@ -28,12 +25,7 @@ const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SEC
 }) : null;
 
 export async function registerRoutes(app: Express): Promise<Server> {
-
-  // ── Health check (Railway) ───────────────────────────────────────────────
-  app.get("/api/health", (_req, res) => {
-    res.json({ status: "ok", timestamp: new Date().toISOString() });
-  });
-
+  
   // Stripe subscription routes
   app.post("/api/create-subscription", async (req, res) => {
     if (!stripe) {
@@ -690,307 +682,143 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // ── Mercado Pago — Suscripciones recurrentes ──────────────────────────────
-
-  // Crear link de suscripción (la empresa elige plan en /subscription-plans)
-  app.post("/api/mercadopago/create-subscription", authenticateCompany, async (req: any, res) => {
-    try {
-      const { planId } = req.body;
-      const company = req.company;
-
-      if (!planId) {
-        return res.status(400).json({ message: "planId es requerido" });
-      }
-
-      const baseUrl = process.env.BASE_URL || `https://${req.get('host')}`;
-
-      const result = await mercadoPagoService.createSubscriptionLink({
-        companyId: company.id,
-        email: company.correoElectronico || company.email,
-        planId,
-        backUrl: `${baseUrl}/subscription-plans?status=success`,
-      });
-
-      if (!result) {
-        return res.status(503).json({
-          message: "Mercado Pago no está configurado. Contacta al administrador."
-        });
-      }
-
-      res.json({ checkoutUrl: result.initPoint, preapprovalId: result.preapprovalId });
-    } catch (error) {
-      console.error('Error creating MP subscription:', error);
-      res.status(500).json({ message: "Error al crear la suscripción" });
-    }
-  });
-
-  // Webhook — Mercado Pago notifica cambios de estado aquí (público, sin auth)
-  app.post("/api/mercadopago/webhook", async (req, res) => {
-    try {
-      await mercadoPagoService.handleWebhook(req.body);
-      res.status(200).send('OK');
-    } catch (error) {
-      console.error('Error processing MP webhook:', error);
-      // Siempre responder 200 para que Mercado Pago no reintente innecesariamente
-      res.status(200).send('OK');
-    }
-  });
-
-  // Cancelar suscripción activa
-  app.post("/api/mercadopago/cancel-subscription", authenticateCompany, async (req: any, res) => {
-    try {
-      const company = req.company;
-      if (!company.mercadopagoSubscriptionId) {
-        return res.status(400).json({ message: "No hay suscripción activa" });
-      }
-      const success = await mercadoPagoService.cancelSubscription(company.mercadopagoSubscriptionId);
-      if (success) {
-        await companyStorage.updateCompanySubscription(company.id, { subscriptionStatus: 'cancelled' });
-      }
-      res.json({ success });
-    } catch (error) {
-      console.error('Error cancelling MP subscription:', error);
-      res.status(500).json({ message: "Error al cancelar la suscripción" });
-    }
-  });
-
-  // Employee template — público, no requiere autenticación
+  // Employee template and import routes (public for download)
   app.get("/api/employees/template/:format", async (req, res) => {
     try {
       const format = req.params.format as 'excel' | 'csv';
-
-      const examples = [
-        { nombre: "Juan", apellidos: "Pérez García", email: "juan.perez@empresa.com", puesto: "Analista de Sistemas", area: "Tecnología", fechaIngreso: "15/01/2024", genero: "Masculino", generacion: "Millennials" },
-        { nombre: "María", apellidos: "López Rodríguez", email: "maria.lopez@empresa.com", puesto: "Gerente de Operaciones", area: "Operaciones", fechaIngreso: "01/03/2024", genero: "Femenino", generacion: "Generación X" },
-        { nombre: "Carlos", apellidos: "Martínez Sánchez", email: "carlos.martinez@empresa.com", puesto: "Contador Senior", area: "Finanzas", fechaIngreso: "10/02/2024", genero: "Masculino", generacion: "Baby Boomers" },
-        { nombre: "Ana", apellidos: "Fernández Torres", email: "ana.fernandez@empresa.com", puesto: "Ejecutiva de Ventas", area: "Comercial", fechaIngreso: "22/04/2024", genero: "Femenino", generacion: "Generación Z" },
-      ];
-
+      
       if (format === 'csv') {
-        const headers = ['nombre','apellidos','email','puesto','area','fechaIngreso','genero','generacion'];
-        const rows = [
-          headers.join(','),
-          ...examples.map(e => headers.map(h => e[h as keyof typeof e] || '').join(','))
+        // Generate CSV template with detailed examples
+        const csvHeaders = [
+          'nombre',
+          'apellidos', 
+          'email',
+          'puesto',
+          'area',
+          'fechaIngreso'
+        ];
+        
+        const csvContent = [
+          csvHeaders.join(','),
+          '# PLANTILLA DE IMPORTACIÓN DE EMPLEADOS',
+          '# Completa los datos siguiendo los ejemplos. No elimines esta línea de encabezados.',
+          '# ÁREAS VÁLIDAS: administracion, operaciones, ventas, recursos-humanos, finanzas, tecnologia, produccion',
+          '# FORMATO DE FECHA: DD/MM/AAAA (ejemplo: 15/03/2024)',
+          '# EJEMPLOS:',
+          'Juan,Pérez García,juan.perez@empresa.com,Analista de Sistemas,tecnologia,15/01/2024',
+          'María,López Rodríguez,maria.lopez@empresa.com,Gerente de Operaciones,operaciones,01/03/2024',
+          'Carlos,Martínez Sánchez,carlos.martinez@empresa.com,Contador Senior,administracion,10/02/2024',
+          'Ana,Fernández Torres,ana.fernandez@empresa.com,Ejecutiva de Ventas,ventas,22/04/2024',
+          'Roberto,Gómez Herrera,roberto.gomez@empresa.com,Supervisor de Producción,produccion,05/05/2024',
+          '# Elimina estas líneas de ejemplo y agrega tus empleados debajo'
         ].join('\n');
-        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+        
+        res.setHeader('Content-Type', 'text/csv');
         res.setHeader('Content-Disposition', 'attachment; filename=plantilla-empleados.csv');
-        res.send('\ufeff' + rows);
-
+        res.send(csvContent);
       } else if (format === 'excel') {
-        // Generar .xlsx real con ExcelJS
-        const wb = new ExcelJS.Workbook();
-        wb.creator = 'NOM-035 Platform';
-        wb.created = new Date();
-
-        // ── Hoja 1: Plantilla ──────────────────────────────────────────────
-        const ws = wb.addWorksheet('Empleados');
-
-        // Ancho de columnas
-        ws.columns = [
-          { header: 'nombre',       key: 'nombre',       width: 18 },
-          { header: 'apellidos',    key: 'apellidos',    width: 22 },
-          { header: 'email',        key: 'email',        width: 30 },
-          { header: 'puesto',       key: 'puesto',       width: 25 },
-          { header: 'area',         key: 'area',         width: 20 },
-          { header: 'fechaIngreso', key: 'fechaIngreso', width: 16 },
-          { header: 'genero',       key: 'genero',       width: 16 },
-          { header: 'generacion',   key: 'generacion',   width: 20 },
+        // For Excel, we'll create a simple CSV that can be opened in Excel
+        // In a real implementation, you'd use a library like 'exceljs'
+        const csvHeaders = [
+          'nombre',
+          'apellidos',
+          'email', 
+          'puesto',
+          'area',
+          'fechaIngreso'
         ];
-
-        // Estilo del encabezado
-        const headerRow = ws.getRow(1);
-        headerRow.eachCell(cell => {
-          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A5F' } };
-          cell.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 };
-          cell.alignment = { vertical: 'middle', horizontal: 'center' };
-          cell.border = {
-            bottom: { style: 'medium', color: { argb: 'FF84CC16' } }
-          };
-        });
-        headerRow.height = 28;
-
-        // Fila de instrucciones (fila 2, merged)
-        ws.mergeCells('A2:H2');
-        const instrCell = ws.getCell('A2');
-        instrCell.value = '⚠ INSTRUCCIONES: Completa los datos desde la fila 4. No modifiques los encabezados. Fecha formato DD/MM/AAAA. Género: Masculino | Femenino | No binario | Prefiero no decir. Generación: Baby Boomers | Generación X | Millennials | Generación Z';
-        instrCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF9C3' } };
-        instrCell.font = { italic: true, color: { argb: 'FF854D0E' }, size: 10 };
-        instrCell.alignment = { wrapText: true, vertical: 'middle' };
-        ws.getRow(2).height = 36;
-
-        // Fila vacía separadora
-        ws.getRow(3).height = 6;
-
-        // Datos de ejemplo (desde fila 4)
-        examples.forEach((emp, i) => {
-          const row = ws.addRow(emp);
-          row.eachCell(cell => {
-            cell.fill = {
-              type: 'pattern', pattern: 'solid',
-              fgColor: { argb: i % 2 === 0 ? 'FFF8FAFC' : 'FFFFFFFF' }
-            };
-            cell.font = { size: 10 };
-            cell.alignment = { vertical: 'middle' };
-          });
-          row.height = 20;
-        });
-
-        // Congelar primera fila
-        ws.views = [{ state: 'frozen', ySplit: 1 }];
-
-        // ── Hoja 2: Instrucciones ──────────────────────────────────────────
-        const wsInstr = wb.addWorksheet('Instrucciones');
-        wsInstr.mergeCells('A1:C1');
-        wsInstr.getCell('A1').value = 'GUÍA DE IMPORTACIÓN — NOM-035 Platform';
-        wsInstr.getCell('A1').font = { bold: true, size: 14, color: { argb: 'FF1E3A5F' } };
-        wsInstr.getCell('A1').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFECFCCB' } };
-        wsInstr.getRow(1).height = 32;
-
-        const instrLines = [
-          ['Campo', 'Obligatorio', 'Descripción / Valores válidos'],
-          ['nombre', 'SÍ', 'Nombre(s) del empleado'],
-          ['apellidos', 'SÍ', 'Apellidos completos'],
-          ['email', 'No', 'Correo electrónico (debe ser único)'],
-          ['puesto', 'SÍ', 'Cargo o posición laboral'],
-          ['area', 'SÍ', 'Departamento o área de trabajo'],
-          ['fechaIngreso', 'SÍ', 'Fecha en formato DD/MM/AAAA — Ej: 15/03/2024'],
-          ['genero', 'No', 'Masculino | Femenino | No binario | Prefiero no decir'],
-          ['generacion', 'No', 'Baby Boomers | Generación X | Millennials | Generación Z'],
-        ];
-        instrLines.forEach((line, i) => {
-          const r = wsInstr.addRow(line);
-          if (i === 0) {
-            r.eachCell(c => {
-              c.font = { bold: true, color: { argb: 'FFFFFFFF' } };
-              c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A5F' } };
-            });
-          } else {
-            r.eachCell((c, ci) => {
-              c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: i % 2 === 0 ? 'FFF8FAFC' : 'FFFFFFFF' } };
-              if (ci === 2) c.font = { color: { argb: line[1] === 'SÍ' ? 'FF15803D' : 'FF64748B' }, bold: line[1] === 'SÍ' };
-            });
-          }
-          r.height = 20;
-        });
-        wsInstr.columns = [{ width: 18 }, { width: 14 }, { width: 60 }];
-
-        // Enviar respuesta — usar writeBuffer (más confiable que stream directo)
-        const buffer = await wb.xlsx.writeBuffer();
-        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        
+        const csvContent = [
+          csvHeaders.join(','),
+          'Juan,Pérez García,juan.perez@empresa.com,Analista,administracion,01/01/2024',
+          'María,López Rodríguez,maria.lopez@empresa.com,Gerente,operaciones,15/03/2024'
+        ].join('\n');
+        
+        res.setHeader('Content-Type', 'application/vnd.ms-excel');
         res.setHeader('Content-Disposition', 'attachment; filename=plantilla-empleados.xlsx');
-        res.setHeader('Content-Length', buffer.byteLength.toString());
-        res.send(Buffer.from(buffer));
-
+        res.send(csvContent);
       } else {
-        res.status(400).json({ message: "Formato no soportado. Use 'excel' o 'csv'" });
+        res.status(400).json({ message: "Format not supported" });
       }
     } catch (error) {
       console.error('Template generation error:', error);
-      res.status(500).json({ message: "Error al generar la plantilla" });
+      res.status(500).json({ message: "Error generating template" });
     }
   });
 
   app.post("/api/employees/import", authenticateCompany, async (req: any, res) => {
     try {
-      const companyId = req.companyId;
-      
-      if (!req.files || !req.files.file) {
-        return res.status(400).json({ message: "No file uploaded" });
+      const companyId = req.company?.id || req.companyId;
+      const { employees } = req.body;
+
+      if (!Array.isArray(employees) || employees.length === 0) {
+        return res.status(400).json({ message: "No hay empleados para importar" });
       }
-      
-      const file = req.files.file;
-      const fileContent = file.data.toString('utf8');
-      
-      // Parse CSV content
-      const lines = fileContent.split('\n').filter(line => line.trim() && !line.startsWith('#'));
-      const headers = lines[0].split(',').map(h => h.trim());
-      
-      const requiredHeaders = ['nombre', 'apellidos', 'email', 'puesto', 'area', 'fechaIngreso'];
-      const missingHeaders = requiredHeaders.filter(h => !headers.includes(h));
-      
-      if (missingHeaders.length > 0) {
-        return res.status(400).json({ 
-          message: `Missing required columns: ${missingHeaders.join(', ')}` 
-        });
-      }
-      
-      const results = {
-        total: lines.length - 1,
-        successful: 0,
-        errors: [] as Array<{ row: number; error: string; data: any }>
-      };
-      
-      // Process each row
-      for (let i = 1; i < lines.length; i++) {
+
+      let imported = 0;
+      let errors = 0;
+      const errorList: string[] = [];
+
+      for (const emp of employees) {
         try {
-          const values = lines[i].split(',').map(v => v.trim());
-          const rowData: any = {};
-          
-          headers.forEach((header, index) => {
-            rowData[header] = values[index] || '';
-          });
-          
-          // Validate required fields
-          for (const field of requiredHeaders) {
-            if (!rowData[field]) {
-              throw new Error(`Missing required field: ${field}`);
-            }
+          const nombre        = emp.nombre        || emp.Nombre        || "";
+          let apPat           = emp.apellido_paterno || emp.apellidoPaterno || emp["Apellido Paterno"] || "";
+          let apMat           = emp.apellido_materno || emp.apellidoMaterno || emp["Apellido Materno"] || "";
+
+          // Compatibilidad con columna "apellidos" unificada
+          if (!apPat && (emp.apellidos || emp.Apellidos)) {
+            const parts = (emp.apellidos || emp.Apellidos || "").split(" ");
+            apPat = parts[0] || "";
+            apMat = parts.slice(1).join(" ") || "";
           }
-          
-          // Validate email format
-          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-          if (!emailRegex.test(rowData.email)) {
-            throw new Error('Invalid email format');
+
+          const apellidos     = `${apPat}${apMat ? " " + apMat : ""}`.trim();
+          const puesto        = emp.puesto        || emp.Puesto        || "";
+          const area          = emp.area          || emp.Area          || emp["Área"] || "";
+          const fechaIngreso  = emp.fecha_ingreso || emp.fechaIngreso  || emp["Fecha Ingreso"] || "";
+          const email         = emp.email         || emp.Email         || null;
+          const rfc           = emp.rfc           || emp.RFC           || null;
+          const curp          = emp.curp          || emp.CURP          || null;
+          const genero        = emp.genero        || emp["Género"]     || null;
+          const generacion    = emp.generacion    || emp["Generación"] || null;
+          const numeroEmpleado = emp.numero_empleado || emp.numeroEmpleado || emp["Número Empleado"] || null;
+
+          if (!nombre || !apPat || !puesto || !area || !fechaIngreso) {
+            errorList.push(`Fila incompleta — nombre: ${nombre || "(vacío)"}, apellido: ${apPat || "(vacío)"}`);
+            errors++;
+            continue;
           }
-          
-          // Validate area
-          const validAreas = ['administracion', 'operaciones', 'ventas', 'recursos-humanos', 'finanzas'];
-          if (!validAreas.includes(rowData.area)) {
-            throw new Error(`Invalid area. Must be one of: ${validAreas.join(', ')}`);
-          }
-          
-          // Parse date
-          const dateParts = rowData.fechaIngreso.split('/');
-          if (dateParts.length !== 3) {
-            throw new Error('Invalid date format. Use DD/MM/YYYY');
-          }
-          
-          const [day, month, year] = dateParts;
-          const fechaIngreso = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
-          
-          if (isNaN(fechaIngreso.getTime())) {
-            throw new Error('Invalid date');
-          }
-          
-          // Create employee
-          const employee = await storage.createEmployee({
+
+          await storage.createEmployee({
             companyId,
-            nombre: rowData.nombre,
-            apellidos: rowData.apellidos,
-            email: rowData.email,
-            puesto: rowData.puesto,
-            area: rowData.area,
-            fechaIngreso
+            nombre,
+            apellidos,
+            apellidoPaterno: apPat,
+            apellidoMaterno: apMat || null,
+            puesto,
+            area,
+            fechaIngreso,
+            email:          email         || null,
+            numeroEmpleado: numeroEmpleado || null,
+            rfc:            rfc   ? rfc.toUpperCase()  : null,
+            curp:           curp  ? curp.toUpperCase() : null,
+            genero:         genero        || null,
+            generacion:     generacion    || null,
+            riskStatus:     "sin-evaluar",
           });
-          
-          results.successful++;
-        } catch (error: any) {
-          results.errors.push({
-            row: i + 1,
-            error: error.message,
-            data: lines[i]
-          });
+          imported++;
+        } catch (rowErr: any) {
+          errors++;
+          errorList.push(rowErr?.message || "Error en fila");
         }
       }
-      
-      res.json(results);
+
+      res.json({ imported, errors, errorList: errorList.slice(0, 10) });
     } catch (error) {
-      console.error('Import error:', error);
-      res.status(500).json({ message: "Error processing import" });
+      console.error("Import error:", error);
+      res.status(500).json({ message: "Error al importar empleados" });
     }
   });
-
-  // Reports generation
   app.get("/api/reports", async (req, res) => {
     try {
       // Return empty array for now - in production this would fetch saved reports
@@ -1422,5 +1250,13 @@ Equipo de Recursos Humanos
   registerInvitationRoutes(app);
 
   const httpServer = createServer(app);
+  // ── Expedientes de trabajadores en riesgo ──────────────────────────────────
+  const { registerExpedienteRoutes } = await import("./expediente-routes.js");
+  registerExpedienteRoutes(app);
+
+  // ── Cumplimiento NOM-035 (calendario, denuncias, centros de trabajo) ────────
+  const { registerComplianceRoutes } = await import("./compliance-routes.js");
+  registerComplianceRoutes(app);
+
   return httpServer;
 }
