@@ -20,8 +20,8 @@ const employeeFormSchema = z.object({
   email:            z.string().email("Email inválido").optional().or(z.literal("")),
   genero:           z.string().optional().or(z.literal("")),
   generacion:       z.string().optional().or(z.literal("")),
-  rfc:              z.string().regex(/^[A-ZÑ&]{3,4}\d{6}[A-Z0-9]{3}$/i, "RFC inválido").optional().or(z.literal("")),
-  curp:             z.string().regex(/^[A-Z]{4}\d{6}[HM][A-Z]{5}[A-Z0-9]\d$/i, "CURP inválida").optional().or(z.literal("")),
+  rfc:              z.string().optional().or(z.literal("")),
+  curp:             z.string().optional().or(z.literal("")),
 });
 
 type EmployeeFormData = z.infer<typeof employeeFormSchema>;
@@ -36,7 +36,6 @@ export default function EmployeeForm({ employee, onSuccess }: EmployeeFormProps)
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
 
-  // Separar apellidos existentes si vienen en campo unificado
   const apellidoPaterno = employee?.apellidoPaterno || employee?.apellido_paterno
     || (employee?.apellidos ? employee.apellidos.split(" ")[0] : "");
   const apellidoMaterno = employee?.apellidoMaterno || employee?.apellido_materno
@@ -46,8 +45,8 @@ export default function EmployeeForm({ employee, onSuccess }: EmployeeFormProps)
     resolver: zodResolver(employeeFormSchema),
     defaultValues: {
       nombre:          employee?.nombre          || "",
-      apellidoPaterno: apellidoPaterno,
-      apellidoMaterno: apellidoMaterno,
+      apellidoPaterno: apellidoPaterno           || "",
+      apellidoMaterno: apellidoMaterno           || "",
       numeroEmpleado:  employee?.numeroEmpleado  || employee?.numero_empleado || "",
       puesto:          employee?.puesto          || "",
       area:            employee?.area            || "",
@@ -80,7 +79,7 @@ export default function EmployeeForm({ employee, onSuccess }: EmployeeFormProps)
         email:           data.email           || null,
         genero:          data.genero          || null,
         generacion:      data.generacion      || null,
-        rfc:             data.rfc             ? data.rfc.toUpperCase() : null,
+        rfc:             data.rfc             ? data.rfc.toUpperCase()  : null,
         curp:            data.curp            ? data.curp.toUpperCase() : null,
       };
 
@@ -105,9 +104,7 @@ export default function EmployeeForm({ employee, onSuccess }: EmployeeFormProps)
       const isLimit = error.message?.includes("Límite");
       toast({
         title: isLimit ? "Límite de empleados alcanzado" : "Error al guardar",
-        description: isLimit
-          ? "Actualiza tu plan para agregar más empleados."
-          : error.message,
+        description: isLimit ? "Actualiza tu plan para agregar más empleados." : error.message,
         variant: "destructive",
       });
     },
@@ -115,51 +112,65 @@ export default function EmployeeForm({ employee, onSuccess }: EmployeeFormProps)
 
   const onSubmit = (data: EmployeeFormData) => saveMutation.mutate(data);
 
-  const Field = ({ name, label, placeholder, required, uppercase }: {
-    name: keyof EmployeeFormData; label: string; placeholder?: string;
-    required?: boolean; uppercase?: boolean;
-  }) => (
-    <FormField control={form.control} name={name} render={({ field }) => (
-      <FormItem>
-        <FormLabel>{label}{required && <span className="text-red-500 ml-1">*</span>}
-          {!required && <span className="text-slate-400 text-xs ml-1">(opcional)</span>}
-        </FormLabel>
-        <FormControl>
-          <Input
-            placeholder={placeholder}
-            {...field}
-            value={field.value ?? ""}
-            onChange={e => field.onChange(uppercase ? e.target.value.toUpperCase() : e.target.value)}
-          />
-        </FormControl>
-        <FormMessage />
-      </FormItem>
-    )} />
-  );
-
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
 
-        {/* Nombre y apellidos */}
-        <div className="grid grid-cols-1 gap-4">
-          <Field name="nombre" label="Nombre(s)" placeholder="Ej: Juan Carlos" required />
-        </div>
+        {/* Nombre */}
+        <FormField control={form.control} name="nombre" render={({ field }) => (
+          <FormItem>
+            <FormLabel>Nombre(s) <span className="text-red-500">*</span></FormLabel>
+            <FormControl><Input placeholder="Ej: Juan Carlos" {...field} /></FormControl>
+            <FormMessage />
+          </FormItem>
+        )} />
+
+        {/* Apellidos separados */}
         <div className="grid grid-cols-2 gap-4">
-          <Field name="apellidoPaterno" label="Apellido Paterno" placeholder="Ej: García" required />
-          <Field name="apellidoMaterno" label="Apellido Materno" placeholder="Ej: López" />
+          <FormField control={form.control} name="apellidoPaterno" render={({ field }) => (
+            <FormItem>
+              <FormLabel>Apellido Paterno <span className="text-red-500">*</span></FormLabel>
+              <FormControl><Input placeholder="Ej: García" {...field} /></FormControl>
+              <FormMessage />
+            </FormItem>
+          )} />
+          <FormField control={form.control} name="apellidoMaterno" render={({ field }) => (
+            <FormItem>
+              <FormLabel>Apellido Materno <span className="text-slate-400 text-xs">(opcional)</span></FormLabel>
+              <FormControl><Input placeholder="Ej: López" {...field} value={field.value ?? ""} /></FormControl>
+              <FormMessage />
+            </FormItem>
+          )} />
         </div>
 
-        {/* Número de empleado */}
-        <Field name="numeroEmpleado" label="Número de Empleado" placeholder="Ej: EMP-001" />
+        {/* No. Empleado */}
+        <FormField control={form.control} name="numeroEmpleado" render={({ field }) => (
+          <FormItem>
+            <FormLabel>Número de Empleado <span className="text-slate-400 text-xs">(opcional)</span></FormLabel>
+            <FormControl><Input placeholder="Ej: EMP-001" {...field} value={field.value ?? ""} /></FormControl>
+            <FormMessage />
+          </FormItem>
+        )} />
 
-        {/* Puesto y área */}
+        {/* Puesto y Área */}
         <div className="grid grid-cols-2 gap-4">
-          <Field name="puesto" label="Puesto / Cargo" placeholder="Ej: Analista" required />
-          <Field name="area" label="Área / Departamento" placeholder="Ej: Finanzas" required />
+          <FormField control={form.control} name="puesto" render={({ field }) => (
+            <FormItem>
+              <FormLabel>Puesto / Cargo <span className="text-red-500">*</span></FormLabel>
+              <FormControl><Input placeholder="Ej: Analista" {...field} /></FormControl>
+              <FormMessage />
+            </FormItem>
+          )} />
+          <FormField control={form.control} name="area" render={({ field }) => (
+            <FormItem>
+              <FormLabel>Área / Departamento <span className="text-red-500">*</span></FormLabel>
+              <FormControl><Input placeholder="Ej: Finanzas" {...field} /></FormControl>
+              <FormMessage />
+            </FormItem>
+          )} />
         </div>
 
-        {/* Fecha y email */}
+        {/* Fecha e Email */}
         <div className="grid grid-cols-2 gap-4">
           <FormField control={form.control} name="fechaIngreso" render={({ field }) => (
             <FormItem>
@@ -168,7 +179,13 @@ export default function EmployeeForm({ employee, onSuccess }: EmployeeFormProps)
               <FormMessage />
             </FormItem>
           )} />
-          <Field name="email" label="Correo Electrónico" placeholder="empleado@empresa.com" />
+          <FormField control={form.control} name="email" render={({ field }) => (
+            <FormItem>
+              <FormLabel>Correo Electrónico <span className="text-slate-400 text-xs">(opcional)</span></FormLabel>
+              <FormControl><Input type="email" placeholder="empleado@empresa.com" {...field} value={field.value ?? ""} /></FormControl>
+              <FormMessage />
+            </FormItem>
+          )} />
         </div>
 
         {/* Género y Generación */}
@@ -207,8 +224,28 @@ export default function EmployeeForm({ employee, onSuccess }: EmployeeFormProps)
 
         {/* RFC y CURP */}
         <div className="grid grid-cols-2 gap-4">
-          <Field name="rfc" label="RFC" placeholder="AAAA000000AAA" uppercase />
-          <Field name="curp" label="CURP" placeholder="AAAA000000HAAAAA00" uppercase />
+          <FormField control={form.control} name="rfc" render={({ field }) => (
+            <FormItem>
+              <FormLabel>RFC <span className="text-slate-400 text-xs">(opcional)</span></FormLabel>
+              <FormControl>
+                <Input placeholder="AAAA000000AAA" maxLength={13}
+                  {...field} value={field.value ?? ""}
+                  onChange={e => field.onChange(e.target.value.toUpperCase())} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )} />
+          <FormField control={form.control} name="curp" render={({ field }) => (
+            <FormItem>
+              <FormLabel>CURP <span className="text-slate-400 text-xs">(opcional)</span></FormLabel>
+              <FormControl>
+                <Input placeholder="AAAA000000HAAAAA00" maxLength={18}
+                  {...field} value={field.value ?? ""}
+                  onChange={e => field.onChange(e.target.value.toUpperCase())} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )} />
         </div>
 
         {/* Botones */}
@@ -220,9 +257,8 @@ export default function EmployeeForm({ employee, onSuccess }: EmployeeFormProps)
             Cancelar
           </Button>
         </div>
+
       </form>
     </Form>
   );
 }
-EOFTS
-echo "✅ employee-form.tsx — $(wc -l < /tmp/employee-form-new.tsx) líneas"
