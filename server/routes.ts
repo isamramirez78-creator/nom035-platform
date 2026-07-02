@@ -1,4 +1,6 @@
 import type { Express } from "express";
+import { registerExpedienteRoutes } from "./expediente-routes";
+import { registerComplianceRoutes } from "./compliance-routes";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { emailService } from "./email-service";
@@ -1294,11 +1296,8 @@ Equipo de Recursos Humanos
 
   const httpServer = createServer(app);
   // ── Expedientes de trabajadores en riesgo ──────────────────────────────────
-  const { registerExpedienteRoutes } = await import("./expediente-routes.js");
+  // ── Rutas adicionales (ya importadas estáticamente al inicio) ──────────────
   registerExpedienteRoutes(app);
-
-  // ── Cumplimiento NOM-035 (calendario, denuncias, centros de trabajo) ────────
-  const { registerComplianceRoutes } = await import("./compliance-routes.js");
   registerComplianceRoutes(app);
 
   return httpServer;
