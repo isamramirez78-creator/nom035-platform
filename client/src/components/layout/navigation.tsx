@@ -3,13 +3,13 @@ import { useLocation, Link } from "wouter";
 export default function Navigation() {
   const [location] = useLocation();
   const navItems = [
-    { path: "/dashboard",           label: "Panel Principal",  icon: "fas fa-tachometer-alt" },
-    { path: "/employees",           label: "Empleados",        icon: "fas fa-users" },
-    { path: "/questionnaires",      label: "Cuestionarios",    icon: "fas fa-clipboard-list" },
-    { path: "/reports",             label: "Reportes",         icon: "fas fa-chart-bar" },
-    { path: "/expedientes",         label: "Expedientes",      icon: "fas fa-folder-open" },
-    { path: "/compliance-dashboard",label: "Cumplimiento",     icon: "fas fa-shield-alt" },
-    { path: "/interventions",       label: "Intervenciones",   icon: "fas fa-hand-holding-heart" },
+    { path: "/dashboard",            label: "Panel",          icon: "fas fa-tachometer-alt" },
+    { path: "/employees",            label: "Empleados",      icon: "fas fa-users" },
+    { path: "/invitations",          label: "Cuestionarios",  icon: "fas fa-paper-plane" },
+    { path: "/reports",              label: "Reportes",       icon: "fas fa-chart-bar" },
+    { path: "/expedientes",          label: "Expedientes",    icon: "fas fa-folder-open" },
+    { path: "/compliance-dashboard", label: "Cumplimiento",   icon: "fas fa-shield-alt" },
+    { path: "/interventions",        label: "Intervenciones", icon: "fas fa-hand-holding-heart" },
   ];
   return (
     <nav className="app-nav">

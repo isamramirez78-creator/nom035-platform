@@ -1,417 +1,294 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { 
-  Mail, 
-  Send, 
-  Clock, 
-  CheckCircle, 
-  AlertTriangle, 
-  User, 
-  Calendar,
-  Copy,
-  ExternalLink,
-  RefreshCw
-} from "lucide-react";
-import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { format } from "date-fns";
-import { es } from "date-fns/locale";
-import type { Employee } from "@shared/schema";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-const questionnaireTypeNames: { [key: string]: string } = {
-  'microenterprise': 'Microempresa (1-15 empleados)',
-  'guide_i': 'Guía I - Identificación y análisis',
-  'guide_ii': 'Guía II - Identificación y análisis (16-49 empleados)',
-  'guide_iii': 'Guía III - Evaluación específica (50+ empleados)',
-  'traumatic_events': 'Eventos Traumáticos'
-};
+const token = () => localStorage.getItem("company_token");
+const h = (json = true) => ({
+  ...(json ? { "Content-Type": "application/json" } : {}),
+  ...(token() ? { Authorization: `Bearer ${token()}` } : {}),
+});
 
-const statusColors: { [key: string]: string } = {
-  'pending': 'bg-yellow-100 text-yellow-800',
-  'completed': 'bg-green-100 text-green-800',
-  'expired': 'bg-red-100 text-red-800'
+const TIPOS = [
+  { value: "guia1", label: "Guía I — Acontec. traumáticos severos (todos)" },
+  { value: "guia2", label: "Guía II — Factores de riesgo (16-50 trabajadores)" },
+  { value: "guia3", label: "Guía III — Evaluación completa (+50 trabajadores)" },
+];
+
+const STATUS_COLORS: Record<string, { bg: string; color: string; label: string }> = {
+  pending:   { bg: "#FEF9C3", color: "#854D0E", label: "Pendiente" },
+  completed: { bg: "#DCFCE7", color: "#15803D", label: "Completada" },
+  expired:   { bg: "#FEE2E2", color: "#991B1B", label: "Expirada" },
 };
 
 export default function EmployeeInvitations() {
-  const [selectedEmployees, setSelectedEmployees] = useState<number[]>([]);
-  const [questionnaireType, setQuestionnaireType] = useState<string>("");
-  const [customMessage, setCustomMessage] = useState<string>("");
-  const [expirationDays, setExpirationDays] = useState<number>(10);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [selected, setSelected] = useState<number[]>([]);
+  const [tipo, setTipo] = useState("guia3");
+  const [mensaje, setMensaje] = useState("");
+  const [dias, setDias] = useState(10);
+  const [search, setSearch] = useState("");
+  const [copiedToken, setCopiedToken] = useState<string | null>(null);
 
-  const { data: employees = [] } = useQuery<Employee[]>({
+  const { data: employees = [] } = useQuery<any[]>({
     queryKey: ["/api/employees"],
+    queryFn: async () => { const r = await fetch("/api/employees", { headers: h() }); return r.ok ? r.json() : []; },
   });
 
-  const { data: invitations = [], isLoading: invitationsLoading } = useQuery({
+  const { data: invitations = [], isLoading } = useQuery<any[]>({
     queryKey: ["/api/questionnaire-invitations"],
+    queryFn: async () => { const r = await fetch("/api/questionnaire-invitations", { headers: h() }); return r.ok ? r.json() : []; },
   });
 
-  const sendInvitationsMutation = useMutation({
-    mutationFn: async (invitationData: any) => {
-      return await apiRequest("POST", "/api/questionnaire-invitations/send", invitationData);
-    },
-    onSuccess: () => {
-      toast({
-        title: "Invitaciones enviadas",
-        description: "Las invitaciones han sido enviadas exitosamente a los empleados seleccionados.",
+  const sendMutation = useMutation({
+    mutationFn: async () => {
+      if (!selected.length) throw new Error("Selecciona al menos un empleado");
+      if (!tipo) throw new Error("Selecciona el tipo de cuestionario");
+      const res = await fetch("/api/questionnaire-invitations", {
+        method: "POST",
+        headers: h(),
+        body: JSON.stringify({ employeeIds: selected, questionnaireType: tipo, customMessage: mensaje, expirationDays: dias }),
       });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message || "Error al enviar");
+      return json;
+    },
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/questionnaire-invitations"] });
-      setSelectedEmployees([]);
-      setQuestionnaireType("");
-      setCustomMessage("");
-    },
-    onError: (error: any) => {
+      setSelected([]);
       toast({
-        title: "Error al enviar invitaciones",
-        description: error.message || "Hubo un problema al enviar las invitaciones.",
-        variant: "destructive",
+        title: `${data.length || data.invitations?.length || "?"} invitaciones enviadas`,
+        description: "Los empleados recibirán el link por email para completar su cuestionario.",
       });
     },
+    onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
-  const sendReminderMutation = useMutation({
-    mutationFn: async (invitationId: number) => {
-      return await apiRequest("POST", `/api/questionnaire-invitations/${invitationId}/reminder`, {});
+  const resendMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const res = await fetch(`/api/questionnaire-invitations/${id}/resend`, { method: "POST", headers: h() });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message);
+      return json;
     },
-    onSuccess: () => {
-      toast({
-        title: "Recordatorio enviado",
-        description: "El recordatorio ha sido enviado exitosamente.",
-      });
-      queryClient.invalidateQueries({ queryKey: ["/api/questionnaire-invitations"] });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error al enviar recordatorio",
-        description: error.message || "Hubo un problema al enviar el recordatorio.",
-        variant: "destructive",
-      });
-    },
+    onSuccess: () => toast({ title: "Invitación reenviada" }),
+    onError: (e: Error) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
 
-  const handleEmployeeToggle = (employeeId: number) => {
-    setSelectedEmployees(prev => 
-      prev.includes(employeeId) 
-        ? prev.filter(id => id !== employeeId)
-        : [...prev, employeeId]
-    );
+  const copyLink = (accessToken: string) => {
+    const url = `${window.location.origin}/cuestionario/${accessToken}`;
+    navigator.clipboard.writeText(url);
+    setCopiedToken(accessToken);
+    setTimeout(() => setCopiedToken(null), 2000);
+    toast({ title: "Link copiado", description: "Puedes enviarlo manualmente al empleado." });
   };
 
-  const handleSelectAll = () => {
-    if (selectedEmployees.length === employees.length) {
-      setSelectedEmployees([]);
-    } else {
-      setSelectedEmployees(employees.map(emp => emp.id));
-    }
-  };
+  const filtered = employees.filter((e: any) =>
+    `${e.nombre} ${e.apellidoPaterno || e.apellidos || ""} ${e.area || ""}`.toLowerCase().includes(search.toLowerCase())
+  );
 
-  const handleSendInvitations = () => {
-    if (selectedEmployees.length === 0 || !questionnaireType) {
-      toast({
-        title: "Información faltante",
-        description: "Selecciona al menos un empleado y un tipo de cuestionario.",
-        variant: "destructive",
-      });
-      return;
-    }
+  const pending = invitations.filter((i: any) => i.status === "pending").length;
+  const completed = invitations.filter((i: any) => i.status === "completed").length;
+  const expired = invitations.filter((i: any) => i.status === "expired").length;
 
-    sendInvitationsMutation.mutate({
-      employeeIds: selectedEmployees,
-      questionnaireType,
-      customMessage,
-      expirationDays
-    });
-  };
-
-  const copyInvitationLink = (token: string) => {
-    const baseUrl = window.location.origin;
-    const link = `${baseUrl}/cuestionario/${token}`;
-    navigator.clipboard.writeText(link);
-    toast({
-      title: "Enlace copiado",
-      description: "El enlace de invitación ha sido copiado al portapapeles.",
-    });
-  };
-
-  const getStatusBadge = (status: string) => {
-    const statusText = {
-      'pending': 'Pendiente',
-      'completed': 'Completado',
-      'expired': 'Expirado'
-    };
-    return (
-      <Badge className={statusColors[status] || 'bg-gray-100 text-gray-800'}>
-        {statusText[status as keyof typeof statusText] || status}
-      </Badge>
-    );
-  };
+  const fmtDate = (d: string) => d ? new Date(d).toLocaleDateString("es-MX", { day: "2-digit", month: "short", year: "numeric" }) : "—";
 
   return (
-    <div className="space-y-6">
-      <div className="mb-8">
-        <h2 className="text-2xl font-bold text-slate-900 mb-2">Invitaciones de Cuestionarios</h2>
-        <p className="text-slate-600">
-          Envía invitaciones seguras por correo electrónico para que los empleados accedan a sus cuestionarios NOM-035
-        </p>
+    <div className="page-container space-y-6">
+      <div className="flex items-center gap-3">
+        <div style={{ width: 3, height: "2.5rem", background: "#84CC16", borderRadius: 2 }}/>
+        <div>
+          <h1 className="page-title">Envío de Cuestionarios</h1>
+          <p className="page-subtitle">Invita a tus empleados a completar la evaluación NOM-035 desde su celular o computadora</p>
+        </div>
       </div>
 
-      <Alert className="border-blue-200 bg-blue-50">
-        <Mail className="h-4 w-4 text-blue-600" />
-        <AlertTitle className="text-blue-800">Sistema de Invitaciones Seguras</AlertTitle>
-        <AlertDescription className="text-blue-700">
-          Los empleados recibirán un enlace único y temporal por correo electrónico para acceder a su cuestionario. 
-          Los enlaces expiran automáticamente después del tiempo especificado para mantener la seguridad.
-        </AlertDescription>
-      </Alert>
+      {/* KPIs */}
+      <div className="grid grid-cols-3 gap-4">
+        {[
+          { label: "Pendientes", value: pending, color: "#EAB308" },
+          { label: "Completadas", value: completed, color: "#22C55E" },
+          { label: "Expiradas", value: expired, color: "#EF4444" },
+        ].map(s => (
+          <div key={s.label} className="kpi-card p-4">
+            <div className="kpi-card-accent" style={{ background: s.color }}></div>
+            <p className="text-xs text-slate-500 mt-1 mb-1">{s.label}</p>
+            <p className="text-2xl font-bold" style={{ color: s.color }}>{s.value}</p>
+          </div>
+        ))}
+      </div>
 
-      <Tabs defaultValue="send" className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="send">Enviar Invitaciones</TabsTrigger>
-          <TabsTrigger value="manage">Gestionar Invitaciones</TabsTrigger>
-        </TabsList>
+      {/* Enviar invitaciones */}
+      <div className="section-card">
+        <div className="section-header"><div className="lime-dot"/><h3>Enviar invitaciones</h3></div>
+        <div className="p-5 space-y-4">
 
-        <TabsContent value="send" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Send className="h-5 w-5" />
-                Nueva Invitación
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Questionnaire Type Selection */}
-              <div className="space-y-2">
-                <Label htmlFor="questionnaire-type">Tipo de Cuestionario</Label>
-                <Select value={questionnaireType} onValueChange={setQuestionnaireType}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Seleccionar tipo de cuestionario" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="microenterprise">
-                      {questionnaireTypeNames.microenterprise}
-                    </SelectItem>
-                    <SelectItem value="guide_i">
-                      {questionnaireTypeNames.guide_i}
-                    </SelectItem>
-                    <SelectItem value="guide_ii">
-                      {questionnaireTypeNames.guide_ii}
-                    </SelectItem>
-                    <SelectItem value="guide_iii">
-                      {questionnaireTypeNames.guide_iii}
-                    </SelectItem>
-                    <SelectItem value="traumatic_events">
-                      <div className="flex items-center gap-2">
-                        <span>{questionnaireTypeNames.traumatic_events}</span>
-                        <Badge className="bg-red-100 text-red-800">Obligatorio</Badge>
-                      </div>
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
+          {/* Tipo de cuestionario */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="text-xs font-medium text-slate-500 mb-1.5 block">Tipo de cuestionario *</label>
+              <Select value={tipo} onValueChange={setTipo}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {TIPOS.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-slate-500 mb-1.5 block">Días de validez del link</label>
+              <Input type="number" min={1} max={30} value={dias} onChange={e => setDias(parseInt(e.target.value) || 10)} />
+            </div>
+            <div>
+              <label className="text-xs font-medium text-slate-500 mb-1.5 block">Buscar empleado</label>
+              <Input placeholder="Nombre, área..." value={search} onChange={e => setSearch(e.target.value)} />
+            </div>
+          </div>
+
+          {/* Selección de empleados */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-xs font-medium text-slate-500">
+                Empleados a evaluar — {selected.length} seleccionados
+              </label>
+              <div className="flex gap-2">
+                <button onClick={() => setSelected(filtered.map((e: any) => e.id))}
+                  className="text-xs px-2 py-1 rounded-lg" style={{ background: "#EFF6FF", color: "#1E3A5F" }}>
+                  Seleccionar todos
+                </button>
+                <button onClick={() => setSelected([])}
+                  className="text-xs px-2 py-1 rounded-lg" style={{ background: "#F1F5F9", color: "#64748B" }}>
+                  Limpiar
+                </button>
               </div>
-
-              {/* Expiration Settings */}
-              <div className="space-y-2">
-                <Label htmlFor="expiration">Días hasta expiración</Label>
-                <Input
-                  id="expiration"
-                  type="number"
-                  min="1"
-                  max="30"
-                  value={expirationDays}
-                  onChange={(e) => setExpirationDays(parseInt(e.target.value) || 10)}
-                  className="w-32"
-                />
-                <p className="text-sm text-gray-600">
-                  Los enlaces expirarán después de {expirationDays} días
-                </p>
-              </div>
-
-              {/* Custom Message */}
-              <div className="space-y-2">
-                <Label htmlFor="message">Mensaje personalizado (opcional)</Label>
-                <Textarea
-                  id="message"
-                  placeholder="Agregue un mensaje personalizado para incluir en la invitación..."
-                  value={customMessage}
-                  onChange={(e) => setCustomMessage(e.target.value)}
-                  rows={3}
-                />
-              </div>
-
-              {/* Employee Selection */}
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <Label>Empleados a invitar</Label>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleSelectAll}
-                  >
-                    {selectedEmployees.length === employees.length ? 'Deseleccionar todos' : 'Seleccionar todos'}
-                  </Button>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 max-h-64 overflow-y-auto border rounded-lg p-4">
-                  {employees.map((employee) => (
-                    <div
-                      key={employee.id}
-                      className={`p-3 border rounded-lg cursor-pointer transition-colors ${
-                        selectedEmployees.includes(employee.id)
-                          ? 'bg-blue-50 border-blue-300'
-                          : 'bg-white border-gray-200 hover:bg-gray-50'
-                      }`}
-                      onClick={() => handleEmployeeToggle(employee.id)}
-                    >
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="checkbox"
-                          checked={selectedEmployees.includes(employee.id)}
-                          onChange={() => handleEmployeeToggle(employee.id)}
-                          className="rounded border-gray-300"
-                        />
-                        <div>
-                          <p className="text-sm font-medium">
-                            {employee.nombre} {employee.apellidos}
+            </div>
+            <div className="border rounded-xl overflow-hidden" style={{ borderColor: "#E2E8F0", maxHeight: "220px", overflowY: "auto" }}>
+              {filtered.length === 0
+                ? <div className="p-4 text-center text-sm text-slate-400">No hay empleados registrados</div>
+                : filtered.map((emp: any) => {
+                    const isSelected = selected.includes(emp.id);
+                    const hasInvPending = invitations.some((i: any) => (i.employeeId || i.employee_id) === emp.id && i.status === "pending");
+                    return (
+                      <div key={emp.id}
+                        onClick={() => setSelected(prev => isSelected ? prev.filter(i => i !== emp.id) : [...prev, emp.id])}
+                        className="flex items-center gap-3 p-3 cursor-pointer border-b transition-colors"
+                        style={{ borderBottomColor: "#F1F5F9", background: isSelected ? "#EFF6FF" : "white" }}>
+                        <div className="w-5 h-5 rounded flex items-center justify-center flex-shrink-0"
+                          style={{ background: isSelected ? "#1E3A5F" : "#F1F5F9", border: `1px solid ${isSelected ? "#1E3A5F" : "#CBD5E1"}` }}>
+                          {isSelected && <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate" style={{ color: "#1E3A5F" }}>
+                            {emp.nombre} {emp.apellidoPaterno || emp.apellidos || ""}
                           </p>
-                          <p className="text-xs text-gray-600">{employee.area}</p>
+                          <p className="text-xs text-slate-400">{emp.puesto} · {emp.area}</p>
                         </div>
+                        {hasInvPending && (
+                          <span className="text-xs px-2 py-0.5 rounded-full flex-shrink-0"
+                            style={{ background: "#FEF9C3", color: "#854D0E" }}>Pendiente</span>
+                        )}
+                        {!emp.email && (
+                          <span className="text-xs px-2 py-0.5 rounded-full flex-shrink-0"
+                            style={{ background: "#FEE2E2", color: "#991B1B" }}>Sin email</span>
+                        )}
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    );
+                  })
+              }
+            </div>
+            {filtered.some((e: any) => !e.email) && (
+              <p className="text-xs mt-1.5" style={{ color: "#F97316" }}>
+                ⚠ Algunos empleados no tienen email registrado — recibirás el link para enviarlo manualmente.
+              </p>
+            )}
+          </div>
 
-                <div className="text-sm text-gray-600">
-                  {selectedEmployees.length} empleado(s) seleccionado(s)
-                </div>
+          {/* Mensaje personalizado */}
+          <div>
+            <label className="text-xs font-medium text-slate-500 mb-1.5 block">
+              Mensaje personalizado <span className="text-slate-400">(opcional)</span>
+            </label>
+            <Textarea
+              placeholder="Estimado colaborador, te invitamos a completar la evaluación NOM-035..."
+              rows={2} value={mensaje} onChange={e => setMensaje(e.target.value)} />
+          </div>
+
+          <Button
+            onClick={() => sendMutation.mutate()}
+            disabled={sendMutation.isPending || !selected.length}
+            className="btn-lime gap-2">
+            <i className="fas fa-paper-plane text-sm"></i>
+            {sendMutation.isPending ? "Enviando..." : `Enviar ${selected.length} invitación${selected.length !== 1 ? "es" : ""}`}
+          </Button>
+        </div>
+      </div>
+
+      {/* Lista de invitaciones */}
+      <div className="section-card">
+        <div className="section-header"><div className="lime-dot"/><h3>Invitaciones enviadas ({invitations.length})</h3></div>
+        {isLoading
+          ? <div className="p-5 text-sm text-slate-500">Cargando...</div>
+          : invitations.length === 0
+            ? <div className="empty-state" style={{ minHeight: 100 }}>
+                <i className="fas fa-envelope text-2xl text-slate-300"></i>
+                <p className="text-sm">Sin invitaciones enviadas aún</p>
               </div>
-
-              <Button
-                onClick={handleSendInvitations}
-                disabled={selectedEmployees.length === 0 || !questionnaireType || sendInvitationsMutation.isPending}
-                className="w-full"
-              >
-                {sendInvitationsMutation.isPending ? (
-                  <>
-                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                    Enviando invitaciones...
-                  </>
-                ) : (
-                  <>
-                    <Send className="h-4 w-4 mr-2" />
-                    Enviar Invitaciones ({selectedEmployees.length})
-                  </>
-                )}
-              </Button>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="manage" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Mail className="h-5 w-5" />
-                Invitaciones Activas
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {invitationsLoading ? (
-                <div className="flex items-center justify-center py-8">
-                  <RefreshCw className="h-6 w-6 animate-spin text-blue-600" />
-                  <span className="ml-2">Cargando invitaciones...</span>
-                </div>
-              ) : invitationsData.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  <Mail className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                  <p>No hay invitaciones enviadas</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {invitationsData.map((invitation: any) => (
-                    <div key={invitation.id} className="border rounded-lg p-4 space-y-3">
-                      <div className="flex items-start justify-between">
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2">
-                            <User className="h-4 w-4 text-gray-600" />
-                            <span className="font-medium">
-                              {invitation.employee?.nombre} {invitation.employee?.apellidos}
+            : <div className="overflow-x-auto">
+                <table className="data-table">
+                  <thead>
+                    <tr><th>Empleado</th><th>Tipo</th><th>Enviado</th><th>Expira</th><th>Estado</th><th>Acciones</th></tr>
+                  </thead>
+                  <tbody>
+                    {invitations.map((inv: any) => {
+                      const emp = employees.find((e: any) => e.id === (inv.employeeId || inv.employee_id));
+                      const cfg = STATUS_COLORS[inv.status] || STATUS_COLORS.pending;
+                      return (
+                        <tr key={inv.id}>
+                          <td>
+                            <p className="font-medium text-sm" style={{ color: "#1E3A5F" }}>
+                              {emp ? `${emp.nombre} ${emp.apellidoPaterno || emp.apellidos || ""}` : "—"}
+                            </p>
+                            <p className="text-xs text-slate-400">{emp?.area || "—"}</p>
+                          </td>
+                          <td className="text-xs">{TIPOS.find(t => t.value === (inv.questionnaireType || inv.questionnaire_type))?.label?.split("—")[0] || inv.questionnaireType}</td>
+                          <td className="text-xs text-slate-500">{fmtDate(inv.createdAt || inv.created_at)}</td>
+                          <td className="text-xs text-slate-500">{fmtDate(inv.expiresAt || inv.expires_at)}</td>
+                          <td>
+                            <span className="text-xs px-2 py-1 rounded-full font-medium" style={{ background: cfg.bg, color: cfg.color }}>
+                              {cfg.label}
                             </span>
-                            {getStatusBadge(invitation.status)}
-                          </div>
-                          <p className="text-sm text-gray-600">
-                            {questionnaireTypeNames[invitation.questionnaireType]} • {invitation.employee?.area}
-                          </p>
-                          <div className="flex items-center gap-4 text-xs text-gray-500">
-                            <span className="flex items-center gap-1">
-                              <Calendar className="h-3 w-3" />
-                              Enviado: {format(new Date(invitation.sentAt || invitation.createdAt), "d 'de' MMMM, yyyy", { locale: es })}
-                            </span>
-                            <span className="flex items-center gap-1">
-                              <Clock className="h-3 w-3" />
-                              Expira: {format(new Date(invitation.expiresAt), "d 'de' MMMM, yyyy", { locale: es })}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          {invitation.status === 'pending' && (
-                            <>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => copyInvitationLink(invitation.accessToken)}
-                              >
-                                <Copy className="h-4 w-4 mr-1" />
-                                Copiar enlace
-                              </Button>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => sendReminderMutation.mutate(invitation.id)}
-                                disabled={sendReminderMutation.isPending}
-                              >
-                                <Mail className="h-4 w-4 mr-1" />
-                                Recordatorio
-                              </Button>
-                            </>
-                          )}
-                          {invitation.status === 'completed' && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => window.open(`/reports/${invitation.employee?.id}`, '_blank')}
-                            >
-                              <ExternalLink className="h-4 w-4 mr-1" />
-                              Ver reporte
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                      
-                      {invitation.reminderCount > 0 && (
-                        <div className="text-xs text-gray-500 bg-gray-50 p-2 rounded">
-                          {invitation.reminderCount} recordatorio(s) enviado(s) • 
-                          Último: {format(new Date(invitation.lastReminderAt), "d 'de' MMMM", { locale: es })}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+                          </td>
+                          <td>
+                            <div className="flex gap-1">
+                              <button
+                                onClick={() => copyLink(inv.accessToken || inv.access_token)}
+                                className="text-xs px-2 py-1 rounded-lg transition-colors"
+                                style={{ background: "#EFF6FF", color: "#1E3A5F" }}
+                                title="Copiar link">
+                                {copiedToken === (inv.accessToken || inv.access_token) ? "✓" : "Link"}
+                              </button>
+                              {inv.status === "pending" && (
+                                <button
+                                  onClick={() => resendMutation.mutate(inv.id)}
+                                  disabled={resendMutation.isPending}
+                                  className="text-xs px-2 py-1 rounded-lg transition-colors"
+                                  style={{ background: "#ECFCCB", color: "#3F6212" }}>
+                                  Reenviar
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+        }
+      </div>
     </div>
   );
 }

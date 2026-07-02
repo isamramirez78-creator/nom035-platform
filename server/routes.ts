@@ -95,34 +95,77 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/employees", authenticateCompany, checkSubscriptionLimits, async (req: any, res) => {
     try {
-      const validated = insertEmployeeSchema.parse(req.body);
+      // Usar parse parcial para permitir campos nuevos no definidos en el schema original
+      const body = req.body;
+      const companyId = req.company?.id || req.companyId;
+
+      if (!body.nombre || !body.puesto || !body.area || !body.fechaIngreso) {
+        return res.status(400).json({ message: "Faltan campos requeridos: nombre, puesto, area, fechaIngreso" });
+      }
+
+      // Construir apellidos si vienen separados
+      const apellidos = body.apellidos ||
+        `${body.apellidoPaterno || ""}${body.apellidoMaterno ? " " + body.apellidoMaterno : ""}`.trim() || "";
+
       const employee = await storage.createEmployee({
-        ...validated,
-        companyId: req.companyId
+        companyId,
+        nombre:           body.nombre,
+        apellidos:        apellidos,
+        apellidoPaterno:  body.apellidoPaterno  || null,
+        apellidoMaterno:  body.apellidoMaterno  || null,
+        numeroEmpleado:   body.numeroEmpleado   || null,
+        puesto:           body.puesto,
+        area:             body.area,
+        fechaIngreso:     body.fechaIngreso,
+        email:            body.email            || null,
+        genero:           body.genero           || null,
+        generacion:       body.generacion       || null,
+        rfc:              body.rfc              ? body.rfc.toUpperCase()  : null,
+        curp:             body.curp             ? body.curp.toUpperCase() : null,
+        riskStatus:       "sin-evaluar",
       });
       res.status(201).json(employee);
-    } catch (error) {
+    } catch (error: any) {
+      console.error("Error creating employee:", error);
       if (error instanceof z.ZodError) {
         return res.status(400).json({ message: "Datos inválidos", errors: error.errors });
       }
-      res.status(500).json({ message: "Error creating employee" });
+      res.status(500).json({ message: error?.message || "Error al crear empleado" });
     }
   });
 
-  app.put("/api/employees/:id", async (req, res) => {
+  app.put("/api/employees/:id", authenticateCompany, async (req: any, res) => {
     try {
       const id = parseInt(req.params.id);
-      const validated = insertEmployeeSchema.partial().parse(req.body);
-      const employee = await storage.updateEmployee(id, validated);
+      const body = req.body;
+
+      const apellidos = body.apellidos ||
+        `${body.apellidoPaterno || ""}${body.apellidoMaterno ? " " + body.apellidoMaterno : ""}`.trim() || undefined;
+
+      const updateData: any = {
+        ...(body.nombre         && { nombre: body.nombre }),
+        ...(apellidos           && { apellidos }),
+        ...(body.apellidoPaterno !== undefined && { apellidoPaterno: body.apellidoPaterno || null }),
+        ...(body.apellidoMaterno !== undefined && { apellidoMaterno: body.apellidoMaterno || null }),
+        ...(body.numeroEmpleado !== undefined  && { numeroEmpleado: body.numeroEmpleado || null }),
+        ...(body.puesto         && { puesto: body.puesto }),
+        ...(body.area           && { area: body.area }),
+        ...(body.fechaIngreso   && { fechaIngreso: body.fechaIngreso }),
+        ...(body.email !== undefined           && { email: body.email || null }),
+        ...(body.genero !== undefined          && { genero: body.genero || null }),
+        ...(body.generacion !== undefined      && { generacion: body.generacion || null }),
+        ...(body.rfc !== undefined             && { rfc: body.rfc ? body.rfc.toUpperCase() : null }),
+        ...(body.curp !== undefined            && { curp: body.curp ? body.curp.toUpperCase() : null }),
+      };
+
+      const employee = await storage.updateEmployee(id, updateData);
       if (!employee) {
         return res.status(404).json({ message: "Empleado no encontrado" });
       }
       res.json(employee);
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ message: "Datos inválidos", errors: error.errors });
-      }
-      res.status(500).json({ message: "Error updating employee" });
+    } catch (error: any) {
+      console.error("Error updating employee:", error);
+      res.status(500).json({ message: error?.message || "Error al actualizar empleado" });
     }
   });
 

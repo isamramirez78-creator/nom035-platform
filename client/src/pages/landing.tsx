@@ -1,449 +1,237 @@
-import { Link } from "wouter";
+import { useLocation, Link } from "wouter";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { 
-  Building2, 
-  Shield, 
-  CheckCircle, 
-  BarChart, 
-  Users, 
-  FileText,
-  AlertTriangle,
-  Zap,
-  Clock,
-  Award
-} from "lucide-react";
 
 export default function Landing() {
+  const [, setLocation] = useLocation();
+
+  const features = [
+    { icon: "fas fa-clipboard-check", title: "Evaluaciones Certificadas", desc: "Cuestionarios oficiales Guías I, II y III con cálculo automático de niveles de riesgo según NOM-035-STPS-2018." },
+    { icon: "fas fa-users", title: "Gestión Centralizada", desc: "Administración de colaboradores, envío de cuestionarios por email y seguimiento de evaluaciones por área." },
+    { icon: "fas fa-chart-bar", title: "Reportes Ejecutivos", desc: "Reportes PDF profesionales para auditorías gubernamentales, con análisis por dominio y recomendaciones." },
+    { icon: "fas fa-folder-open", title: "Expedientes Digitales", desc: "Historial de seguimiento para trabajadores en riesgo: citas, intervenciones y evidencias documentadas." },
+    { icon: "fas fa-shield-alt", title: "Control de Cumplimiento", desc: "Calendario de vencimientos, canal de denuncias y gestión de documentos normativos obligatorios." },
+    { icon: "fas fa-building", title: "Multi-Centro de Trabajo", desc: "Gestión independiente por sucursal. La NOM-035 aplica por cada centro de trabajo." },
+  ];
+
+  const plans = [
+    { name: "Plan Básico", price: "$899", period: "/mes", employees: "1-15 empleados", color: "#1E3A5F", popular: false },
+    { name: "Plan Profesional", price: "$1,899", period: "/mes", employees: "16-50 empleados", color: "#84CC16", popular: true },
+    { name: "Plan Empresarial", price: "$3,499", period: "/mes", employees: "50+ empleados", color: "#1E3A5F", popular: false },
+  ];
+
   return (
-    <div className="min-h-screen bg-slate-50">
-      {/* Header */}
-      <header className="bg-white shadow-lg border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <div className="flex items-center">
-              <div className="bg-slate-900 rounded-lg p-2 mr-4">
-                <Shield className="h-8 w-8 text-white" />
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold text-slate-900 tracking-tight">NOM-035 STPS</h1>
-                <p className="text-sm text-slate-600 font-medium">Sistema Empresarial de Evaluación Psicosocial</p>
-              </div>
+    <div style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
+
+      {/* Nav */}
+      <nav style={{ background: "#1E3A5F", borderBottom: "3px solid #84CC16", position: "sticky", top: 0, zIndex: 50 }}>
+        <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 1.5rem", display: "flex", alignItems: "center", justifyContent: "space-between", height: 64 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ width: 36, height: 36, background: "#84CC16", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1E3A5F" strokeWidth="2.5">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/>
+              </svg>
             </div>
-            <div className="flex space-x-3">
-              <Link href="/company-login">
-                <Button variant="outline" className="border-slate-300 text-slate-700 hover:bg-slate-50">
-                  Acceso Empresarial
-                </Button>
-              </Link>
-              <Link href="/company-register">
-                <Button className="bg-slate-900 hover:bg-slate-800 text-white">
-                  Registro Corporativo
-                </Button>
-              </Link>
+            <div>
+              <div style={{ color: "white", fontWeight: 700, fontSize: 14 }}>NOM-035 STPS</div>
+              <div style={{ color: "#94A3B8", fontSize: 11 }}>Plataforma de Evaluación Psicosocial</div>
             </div>
           </div>
+          <div style={{ display: "flex", gap: 10 }}>
+            <Button variant="outline" onClick={() => setLocation("/login")}
+              style={{ borderColor: "rgba(255,255,255,0.3)", color: "white", background: "transparent", fontSize: 13 }}>
+              Iniciar sesión
+            </Button>
+            <Button onClick={() => setLocation("/company-register")}
+              style={{ background: "#84CC16", color: "#1E3A5F", fontWeight: 700, fontSize: 13 }}>
+              Prueba gratis
+            </Button>
+          </div>
         </div>
-      </header>
+      </nav>
 
-      {/* Hero Section */}
-      <section className="py-24 px-4 sm:px-6 lg:px-8 bg-white">
-        <div className="max-w-7xl mx-auto">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+      {/* Hero */}
+      <section style={{ background: "linear-gradient(135deg, #152B47 0%, #1E3A5F 60%, #0F1E38 100%)", padding: "80px 24px", textAlign: "center" }}>
+        <div style={{ maxWidth: 800, margin: "0 auto" }}>
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "rgba(132,204,22,0.15)", border: "1px solid rgba(132,204,22,0.3)", borderRadius: 99, padding: "6px 16px", marginBottom: 24 }}>
+            <div style={{ width: 8, height: 8, background: "#84CC16", borderRadius: "50%" }}></div>
+            <span style={{ color: "#84CC16", fontSize: 12, fontWeight: 600 }}>Certificado NOM-035-STPS-2018</span>
+          </div>
+          <h1 style={{ color: "white", fontSize: 42, fontWeight: 800, lineHeight: 1.15, marginBottom: 20 }}>
+            Plataforma Empresarial de<br />
+            <span style={{ color: "#84CC16" }}>Evaluación Psicosocial</span>
+          </h1>
+          <p style={{ color: "#94A3B8", fontSize: 17, lineHeight: 1.7, marginBottom: 32 }}>
+            Solución integral para el cumplimiento normativo de la NOM-035-STPS-2018.
+            Gestiona evaluaciones, genera reportes oficiales y mantén el compliance de tu organización.
+          </p>
+
+          {/* Banner prueba gratis */}
+          <div style={{ background: "rgba(132,204,22,0.1)", border: "1px solid rgba(132,204,22,0.3)", borderRadius: 16, padding: "16px 20px", marginBottom: 28, textAlign: "left", display: "flex", alignItems: "flex-start", gap: 12 }}>
+            <div style={{ background: "#84CC16", borderRadius: "50%", padding: 6, flexShrink: 0 }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1E3A5F" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
             <div>
-              <div className="inline-flex items-center bg-slate-100 text-slate-700 text-sm font-medium px-3 py-1 rounded-full mb-8">
-                <Award className="h-4 w-4 mr-2" />
-                Certificado NOM-035-STPS-2018
-              </div>
-              <h1 className="text-4xl lg:text-5xl font-bold text-slate-900 leading-tight mb-6">
-                Plataforma Empresarial de
-                <span className="text-slate-700"> Evaluación Psicosocial</span>
-              </h1>
-              <p className="text-xl text-slate-600 mb-8 leading-relaxed">
-                Solución integral para el cumplimiento normativo de la NOM-035-STPS-2018. 
-                Gestione evaluaciones psicosociales, genere reportes oficiales y mantenga 
-                el compliance de su organización con la más alta precisión.
-              </p>
+              <p style={{ color: "#84CC16", fontWeight: 700, fontSize: 14, margin: 0 }}>Prueba gratis — Evalúa hasta 5 colaboradores sin costo</p>
+              <p style={{ color: "#64748B", fontSize: 12, margin: "4px 0 0" }}>Aplica el cuestionario oficial NOM-035 y recibe tu reporte de resultados. Sin tarjeta de crédito.</p>
+            </div>
+          </div>
 
-              <div className="bg-lime-50 border border-lime-300 rounded-xl p-4 mb-6 flex items-start gap-3">
-                <div className="bg-lime-500 rounded-full p-1.5 flex-shrink-0 mt-0.5">
-                  <CheckCircle className="h-4 w-4 text-white" />
+          <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
+            <Button onClick={() => setLocation("/company-register")}
+              style={{ background: "#84CC16", color: "#1E3A5F", fontWeight: 700, fontSize: 15, padding: "12px 28px", height: "auto" }}>
+              Comenzar prueba gratuita →
+            </Button>
+            <Button variant="outline" onClick={() => setLocation("/login")}
+              style={{ borderColor: "rgba(255,255,255,0.3)", color: "white", background: "transparent", fontSize: 15, padding: "12px 28px", height: "auto" }}>
+              Portal Corporativo
+            </Button>
+          </div>
+        </div>
+      </section>
+
+      {/* Características */}
+      <section style={{ padding: "72px 24px", background: "#F8FAFC" }}>
+        <div style={{ maxWidth: 1200, margin: "0 auto" }}>
+          <div style={{ textAlign: "center", marginBottom: 48 }}>
+            <h2 style={{ color: "#1E3A5F", fontSize: 28, fontWeight: 700, marginBottom: 8 }}>Todo lo que necesitas para cumplir la NOM-035</h2>
+            <p style={{ color: "#64748B", fontSize: 15 }}>Herramientas diseñadas para garantizar el cumplimiento normativo ante cualquier inspección de la STPS</p>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 20 }}>
+            {features.map((f, i) => (
+              <div key={i} style={{ background: "white", borderRadius: 16, padding: "24px", border: "0.5px solid #E2E8F0", boxShadow: "0 1px 4px rgba(0,0,0,0.05)", display: "flex", gap: 16, alignItems: "flex-start" }}>
+                <div style={{ width: 44, height: 44, background: "#EFF6FF", borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  <i className={f.icon} style={{ color: "#1E3A5F", fontSize: 18 }}></i>
                 </div>
                 <div>
-                  <p className="font-semibold text-slate-900 text-sm">
-                    Prueba gratis — Evalúa hasta 5 colaboradores sin costo
-                  </p>
-                  <p className="text-slate-600 text-xs mt-0.5">
-                    Aplica el cuestionario oficial NOM-035 y recibe tu reporte de resultados. Sin tarjeta de crédito.
-                  </p>
+                  <h3 style={{ color: "#1E3A5F", fontWeight: 700, fontSize: 15, marginBottom: 6 }}>{f.title}</h3>
+                  <p style={{ color: "#64748B", fontSize: 13, lineHeight: 1.6, margin: 0 }}>{f.desc}</p>
                 </div>
               </div>
-
-              <div className="flex flex-col sm:flex-row gap-4">
-                <Link href="/company-register">
-                  <Button size="lg" className="bg-lime-600 hover:bg-lime-700 text-white px-8 py-3 text-lg font-semibold">
-                    Comenzar prueba gratuita
-                  </Button>
-                </Link>
-                <Link href="/plans">
-                  <Button variant="outline" size="lg" className="border-slate-300 text-slate-700 hover:bg-slate-50 px-8 py-3 text-lg font-semibold">
-                    Ver Planes y Precios
-                  </Button>
-                </Link>
-              </div>
-            </div>
-            <div className="bg-gradient-to-br from-slate-100 to-slate-200 rounded-2xl p-8 lg:p-12">
-              <div className="bg-white rounded-xl shadow-lg p-6">
-                <div className="flex items-center mb-4">
-                  <div className="bg-green-100 rounded-lg p-2 mr-3">
-                    <CheckCircle className="h-6 w-6 text-green-600" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-slate-900">Cumplimiento Garantizado</h3>
-                    <p className="text-sm text-slate-600">100% conforme a normativa oficial</p>
-                  </div>
-                </div>
-                <div className="space-y-3 text-sm text-slate-600">
-                  <div className="flex items-center">
-                    <div className="w-2 h-2 bg-slate-400 rounded-full mr-3"></div>
-                    Evaluaciones psicosociales automatizadas
-                  </div>
-                  <div className="flex items-center">
-                    <div className="w-2 h-2 bg-slate-400 rounded-full mr-3"></div>
-                    Reportes oficiales y documentación completa
-                  </div>
-                  <div className="flex items-center">
-                    <div className="w-2 h-2 bg-slate-400 rounded-full mr-3"></div>
-                    Gestión integral de intervenciones
-                  </div>
-                  <div className="flex items-center">
-                    <div className="w-2 h-2 bg-slate-400 rounded-full mr-3"></div>
-                    Dashboard ejecutivo con métricas clave
-                  </div>
-                </div>
-              </div>
-            </div>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* Features Section */}
-      <section className="py-24 bg-slate-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl lg:text-4xl font-bold text-slate-900 mb-4">
-              Solución Integral para su Organización
-            </h2>
-            <p className="text-xl text-slate-600 max-w-3xl mx-auto">
-              Herramientas empresariales avanzadas diseñadas para garantizar el cumplimiento 
-              normativo y optimizar la gestión de riesgos psicosociales
+      {/* Compliance Matrix */}
+      <section style={{ padding: "72px 24px", background: "white" }}>
+        <div style={{ maxWidth: 1100, margin: "0 auto", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 60, alignItems: "center" }}>
+          <div>
+            <div style={{ display: "inline-block", background: "#ECFCCB", color: "#3F6212", fontSize: 12, fontWeight: 600, padding: "4px 12px", borderRadius: 99, marginBottom: 16 }}>
+              Certificación NOM-035-STPS-2018
+            </div>
+            <h2 style={{ color: "#1E3A5F", fontSize: 28, fontWeight: 700, marginBottom: 16 }}>Compliance Empresarial Garantizado</h2>
+            <p style={{ color: "#64748B", fontSize: 14, lineHeight: 1.7, marginBottom: 24 }}>
+              Nuestra plataforma implementa exactamente todos los requerimientos establecidos por la Secretaría del Trabajo y Previsión Social, garantizando protección completa ante auditorías gubernamentales.
             </p>
+            {[
+              { title: "Metodología Oficial", desc: "Implementación exacta de las Guías de Referencia I, II y III" },
+              { title: "Algoritmos Certificados", desc: "Cálculos de riesgo según especificaciones técnicas oficiales" },
+              { title: "Documentación Integral", desc: "Registros completos y trazabilidad total para auditorías" },
+            ].map(i => (
+              <div key={i.title} style={{ display: "flex", gap: 12, marginBottom: 16, alignItems: "flex-start" }}>
+                <div style={{ width: 24, height: 24, background: "#ECFCCB", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#3F6212" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>
+                </div>
+                <div>
+                  <p style={{ color: "#1E3A5F", fontWeight: 600, fontSize: 14, margin: 0 }}>{i.title}</p>
+                  <p style={{ color: "#64748B", fontSize: 13, margin: 0 }}>{i.desc}</p>
+                </div>
+              </div>
+            ))}
           </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8 hover:shadow-md transition-shadow">
-              <div className="bg-slate-100 rounded-lg p-3 w-fit mb-6">
-                <BarChart className="h-8 w-8 text-slate-700" />
+          <div style={{ background: "#F8FAFC", borderRadius: 20, padding: 24, border: "0.5px solid #E2E8F0" }}>
+            <h3 style={{ color: "#1E3A5F", fontWeight: 700, fontSize: 16, marginBottom: 20 }}>Matriz de Cumplimiento</h3>
+            {[
+              { size: "Microempresas (1-15)", nivel: "Básico", color: "#22C55E", bg: "#DCFCE7" },
+              { size: "Pequeñas (16-50)", nivel: "Intermedio", color: "#EAB308", bg: "#FEF9C3" },
+              { size: "Medianas y Grandes (50+)", nivel: "Completo", color: "#EF4444", bg: "#FEE2E2" },
+            ].map(r => (
+              <div key={r.size} style={{ background: "white", borderRadius: 12, padding: "16px", marginBottom: 12, borderLeft: `4px solid ${r.color}`, boxShadow: "0 1px 3px rgba(0,0,0,0.06)" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                  <span style={{ color: "#1E3A5F", fontWeight: 600, fontSize: 14 }}>{r.size}</span>
+                  <span style={{ background: r.bg, color: r.color, fontSize: 11, fontWeight: 600, padding: "2px 10px", borderRadius: 99 }}>{r.nivel}</span>
+                </div>
+                <p style={{ color: "#64748B", fontSize: 12, margin: 0 }}>Política de prevención + cuestionarios + reportes</p>
               </div>
-              <h3 className="text-xl font-semibold text-slate-900 mb-3">Evaluaciones Certificadas</h3>
-              <p className="text-slate-600 leading-relaxed">
-                Cuestionarios oficiales implementados según las Guías de Referencia I, II y III. 
-                Cálculo automático de niveles de riesgo con algoritmos certificados.
-              </p>
-            </div>
-
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8 hover:shadow-md transition-shadow">
-              <div className="bg-slate-100 rounded-lg p-3 w-fit mb-6">
-                <Users className="h-8 w-8 text-slate-700" />
-              </div>
-              <h3 className="text-xl font-semibold text-slate-900 mb-3">Gestión Centralizada</h3>
-              <p className="text-slate-600 leading-relaxed">
-                Administración completa de colaboradores, invitaciones automatizadas y 
-                seguimiento detallado del progreso de evaluaciones por departamento.
-              </p>
-            </div>
-
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8 hover:shadow-md transition-shadow">
-              <div className="bg-slate-100 rounded-lg p-3 w-fit mb-6">
-                <FileText className="h-8 w-8 text-slate-700" />
-              </div>
-              <h3 className="text-xl font-semibold text-slate-900 mb-3">Reportes Ejecutivos</h3>
-              <p className="text-slate-600 leading-relaxed">
-                Generación automática de reportes oficiales, análisis estadísticos avanzados 
-                y documentación completa para auditorías gubernamentales.
-              </p>
-            </div>
-
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8 hover:shadow-md transition-shadow">
-              <div className="bg-slate-100 rounded-lg p-3 w-fit mb-6">
-                <AlertTriangle className="h-8 w-8 text-slate-700" />
-              </div>
-              <h3 className="text-xl font-semibold text-slate-900 mb-3">Alertas Inteligentes</h3>
-              <p className="text-slate-600 leading-relaxed">
-                Sistema de detección temprana de riesgos altos. Notificaciones automáticas 
-                y escalamiento para intervención inmediata del equipo directivo.
-              </p>
-            </div>
-
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8 hover:shadow-md transition-shadow">
-              <div className="bg-slate-100 rounded-lg p-3 w-fit mb-6">
-                <Zap className="h-8 w-8 text-slate-700" />
-              </div>
-              <h3 className="text-xl font-semibold text-slate-900 mb-3">Plan de Intervención</h3>
-              <p className="text-slate-600 leading-relaxed">
-                Diseño y seguimiento de medidas correctivas personalizadas. Cronogramas 
-                de implementación y documentación integral de acciones realizadas.
-              </p>
-            </div>
-
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8 hover:shadow-md transition-shadow">
-              <div className="bg-slate-100 rounded-lg p-3 w-fit mb-6">
-                <Clock className="h-8 w-8 text-slate-700" />
-              </div>
-              <h3 className="text-xl font-semibold text-slate-900 mb-3">Control de Cumplimiento</h3>
-              <p className="text-slate-600 leading-relaxed">
-                Calendario automático de evaluaciones, recordatorios programados y 
-                seguimiento de plazos normativos para mantener el compliance continuo.
-              </p>
-            </div>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* Compliance Section */}
-      <section className="py-24 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
-            <div>
-              <div className="inline-flex items-center bg-green-50 text-green-700 text-sm font-medium px-4 py-2 rounded-full mb-8">
-                <Award className="h-4 w-4 mr-2" />
-                Certificación Oficial NOM-035-STPS-2018
-              </div>
-              <h2 className="text-3xl lg:text-4xl font-bold text-slate-900 mb-6">
-                Compliance Empresarial Garantizado
-              </h2>
-              <p className="text-xl text-slate-600 mb-8 leading-relaxed">
-                Nuestra plataforma implementa exactamente todos los requerimientos establecidos 
-                por la Secretaría del Trabajo y Previsión Social, garantizando protección 
-                completa ante auditorías gubernamentales.
-              </p>
-              <div className="space-y-6">
-                <div className="flex items-start">
-                  <div className="bg-green-100 rounded-lg p-2 mr-4 mt-1">
-                    <CheckCircle className="h-5 w-5 text-green-600" />
-                  </div>
-                  <div>
-                    <h4 className="font-semibold text-slate-900 mb-1">Metodología Oficial</h4>
-                    <p className="text-slate-600">Implementación exacta de las Guías de Referencia I, II y III</p>
-                  </div>
-                </div>
-                <div className="flex items-start">
-                  <div className="bg-green-100 rounded-lg p-2 mr-4 mt-1">
-                    <CheckCircle className="h-5 w-5 text-green-600" />
-                  </div>
-                  <div>
-                    <h4 className="font-semibold text-slate-900 mb-1">Algoritmos Certificados</h4>
-                    <p className="text-slate-600">Cálculos de riesgo según especificaciones técnicas oficiales</p>
-                  </div>
-                </div>
-                <div className="flex items-start">
-                  <div className="bg-green-100 rounded-lg p-2 mr-4 mt-1">
-                    <CheckCircle className="h-5 w-5 text-green-600" />
-                  </div>
-                  <div>
-                    <h4 className="font-semibold text-slate-900 mb-1">Documentación Integral</h4>
-                    <p className="text-slate-600">Registros completos y trazabilidad total para auditorías</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div className="bg-slate-50 p-8 lg:p-10 rounded-2xl border border-slate-200">
-              <h3 className="text-2xl font-bold text-slate-900 mb-8">Matriz de Cumplimiento</h3>
-              <div className="space-y-6">
-                <div className="bg-white rounded-xl p-6 border-l-4 border-green-500">
-                  <div className="flex items-center justify-between mb-2">
-                    <h4 className="font-semibold text-slate-900">Microempresas (1-15)</h4>
-                    <span className="bg-green-100 text-green-700 text-xs font-medium px-2 py-1 rounded">Básico</span>
-                  </div>
-                  <p className="text-sm text-slate-600">Política de prevención, identificación y análisis de factores de riesgo psicosocial</p>
-                </div>
-                <div className="bg-white rounded-xl p-6 border-l-4 border-yellow-500">
-                  <div className="flex items-center justify-between mb-2">
-                    <h4 className="font-semibold text-slate-900">Pequeñas (16-50)</h4>
-                    <span className="bg-yellow-100 text-yellow-700 text-xs font-medium px-2 py-1 rounded">Intermedio</span>
-                  </div>
-                  <p className="text-sm text-slate-600">+ Cuestionarios para identificar factores de riesgo psicosocial en el trabajo</p>
-                </div>
-                <div className="bg-white rounded-xl p-6 border-l-4 border-red-500">
-                  <div className="flex items-center justify-between mb-2">
-                    <h4 className="font-semibold text-slate-900">Medianas y Grandes (50+)</h4>
-                    <span className="bg-red-100 text-red-700 text-xs font-medium px-2 py-1 rounded">Completo</span>
-                  </div>
-                  <p className="text-sm text-slate-600">+ Entorno organizacional favorable + Evaluaciones clínicas especializadas</p>
-                </div>
-              </div>
-            </div>
+      {/* Planes */}
+      <section style={{ padding: "72px 24px", background: "#F8FAFC" }}>
+        <div style={{ maxWidth: 1000, margin: "0 auto" }}>
+          <div style={{ textAlign: "center", marginBottom: 48 }}>
+            <h2 style={{ color: "#1E3A5F", fontSize: 28, fontWeight: 700, marginBottom: 8 }}>Planes Empresariales</h2>
+            <p style={{ color: "#64748B", fontSize: 15 }}>Soluciones escalables para organizaciones de todos los tamaños</p>
           </div>
-        </div>
-      </section>
-
-      {/* CTA Section */}
-      <section className="py-24 bg-slate-900">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center">
-            <h2 className="text-3xl lg:text-4xl font-bold text-white mb-6">
-              Transforme su Gestión de Compliance
-            </h2>
-            <p className="text-xl text-slate-300 mb-10 max-w-3xl mx-auto leading-relaxed">
-              Implemente una solución empresarial integral que garantice el cumplimiento 
-              normativo y proteja su organización ante auditorías gubernamentales
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
-              <Link href="/company-register">
-                <Button size="lg" className="bg-white text-slate-900 hover:bg-slate-100 px-8 py-3 text-lg font-semibold">
-                  Solicitar Demostración Ejecutiva
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 16 }}>
+            {plans.map((plan) => (
+              <div key={plan.name} style={{
+                background: "white", borderRadius: 20, padding: "28px 24px",
+                border: plan.popular ? `2px solid ${plan.color}` : "0.5px solid #E2E8F0",
+                boxShadow: plan.popular ? "0 8px 24px rgba(132,204,22,0.2)" : "0 1px 4px rgba(0,0,0,0.05)",
+                position: "relative",
+              }}>
+                {plan.popular && (
+                  <div style={{ position: "absolute", top: -12, left: "50%", transform: "translateX(-50%)", background: "#84CC16", color: "#1E3A5F", fontSize: 11, fontWeight: 700, padding: "4px 16px", borderRadius: 99 }}>
+                    MÁS POPULAR
+                  </div>
+                )}
+                <h3 style={{ color: "#1E3A5F", fontWeight: 700, fontSize: 16, marginBottom: 4 }}>{plan.name}</h3>
+                <div style={{ display: "flex", alignItems: "baseline", gap: 4, marginBottom: 4 }}>
+                  <span style={{ color: plan.popular ? "#84CC16" : "#1E3A5F", fontSize: 32, fontWeight: 800 }}>{plan.price}</span>
+                  <span style={{ color: "#64748B", fontSize: 13 }}>{plan.period}</span>
+                </div>
+                <p style={{ color: "#64748B", fontSize: 13, marginBottom: 20 }}>{plan.employees}</p>
+                <Button onClick={() => setLocation("/company-register")}
+                  style={{ width: "100%", background: plan.popular ? "#84CC16" : "#1E3A5F", color: plan.popular ? "#1E3A5F" : "white", fontWeight: 600 }}>
+                  Comenzar prueba gratis
                 </Button>
-              </Link>
-              <Link href="/company-login">
-                <Button size="lg" variant="outline" className="border-slate-400 text-white hover:bg-slate-800 px-8 py-3 text-lg font-semibold">
-                  Acceso Corporativo
-                </Button>
-              </Link>
-            </div>
-            <div className="flex flex-wrap justify-center items-center gap-8 pt-8 border-t border-slate-700">
-              <div className="text-center">
-                <div className="text-2xl font-bold text-white">100%</div>
-                <div className="text-sm text-slate-400">Compliance</div>
               </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-white">24/7</div>
-                <div className="text-sm text-slate-400">Monitoreo</div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-white">Enterprise</div>
-                <div className="text-sm text-slate-400">Security</div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-white">Certified</div>
-                <div className="text-sm text-slate-400">Platform</div>
-              </div>
-            </div>
+            ))}
           </div>
-        </div>
-      </section>
-
-      {/* Pricing Preview Section */}
-      <section className="py-20 px-4 sm:px-6 lg:px-8 bg-slate-50">
-        <div className="max-w-4xl mx-auto text-center">
-          <h2 className="text-3xl lg:text-4xl font-bold text-slate-900 mb-4">
-            Planes Empresariales
-          </h2>
-          <p className="text-xl text-slate-600 mb-12">
-            Soluciones escalables para organizaciones de todos los tamaños
+          <p style={{ textAlign: "center", color: "#64748B", fontSize: 13, marginTop: 20 }}>
+            15% de descuento en planes anuales · Sin tarjeta de crédito para la prueba gratuita
           </p>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
-            <div className="bg-white rounded-xl p-8 border border-slate-200 hover:border-slate-300 transition-colors">
-              <h3 className="text-xl font-semibold text-slate-900 mb-2">Plan Básico</h3>
-              <div className="text-3xl font-bold text-slate-900 mb-4">$899<span className="text-base font-normal text-slate-600">/mes</span></div>
-              <p className="text-slate-600 mb-6">Ideal para microempresas (1-15 empleados)</p>
-              <Link href="/plans">
-                <Button className="w-full bg-slate-900 hover:bg-slate-800">Ver Detalles</Button>
-              </Link>
-            </div>
-            
-            <div className="bg-white rounded-xl p-8 border-2 border-slate-900 relative">
-              <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-                <span className="bg-slate-900 text-white px-4 py-1 rounded-full text-sm font-medium">
-                  Más Popular
-                </span>
-              </div>
-              <h3 className="text-xl font-semibold text-slate-900 mb-2">Plan Profesional</h3>
-              <div className="text-3xl font-bold text-slate-900 mb-4">$1,899<span className="text-base font-normal text-slate-600">/mes</span></div>
-              <p className="text-slate-600 mb-6">Para pequeñas empresas (16-50 empleados)</p>
-              <Link href="/plans">
-                <Button className="w-full bg-slate-900 hover:bg-slate-800">Ver Detalles</Button>
-              </Link>
-            </div>
-            
-            <div className="bg-white rounded-xl p-8 border border-slate-200 hover:border-slate-300 transition-colors">
-              <h3 className="text-xl font-semibold text-slate-900 mb-2">Plan Empresarial</h3>
-              <div className="text-3xl font-bold text-slate-900 mb-4">$3,499<span className="text-base font-normal text-slate-600">/mes</span></div>
-              <p className="text-slate-600 mb-6">Para medianas y grandes empresas (50+ empleados)</p>
-              <Link href="/plans">
-                <Button className="w-full bg-slate-900 hover:bg-slate-800">Ver Detalles</Button>
-              </Link>
-            </div>
+        </div>
+      </section>
+
+      {/* CTA Final */}
+      <section style={{ background: "#1E3A5F", padding: "64px 24px", textAlign: "center", borderTop: "3px solid #84CC16" }}>
+        <div style={{ maxWidth: 600, margin: "0 auto" }}>
+          <h2 style={{ color: "white", fontSize: 26, fontWeight: 700, marginBottom: 12 }}>
+            Transforma tu Gestión de Compliance
+          </h2>
+          <p style={{ color: "#94A3B8", fontSize: 15, marginBottom: 28 }}>
+            Implementa una solución empresarial integral que garantice el cumplimiento normativo y proteja tu organización ante auditorías gubernamentales.
+          </p>
+          <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap", marginBottom: 32 }}>
+            <Button onClick={() => setLocation("/company-register")}
+              style={{ background: "#84CC16", color: "#1E3A5F", fontWeight: 700, fontSize: 15, padding: "12px 28px", height: "auto" }}>
+              Solicitar demostración
+            </Button>
+            <Button variant="outline" onClick={() => setLocation("/login")}
+              style={{ borderColor: "rgba(255,255,255,0.3)", color: "white", background: "transparent", fontSize: 15, padding: "12px 28px", height: "auto" }}>
+              Acceso empresarial
+            </Button>
           </div>
-          
-          <div className="text-center">
-            <Link href="/plans">
-              <Button size="lg" className="bg-slate-900 hover:bg-slate-800 text-white px-8 py-3 text-lg font-semibold">
-                Ver Todos los Planes y Características
-              </Button>
-            </Link>
+          <div style={{ display: "flex", justifyContent: "center", gap: 32, flexWrap: "wrap" }}>
+            {["100% Compliance", "24/7 Disponible", "Datos Seguros", "Soporte Incluido"].map(s => (
+              <div key={s} style={{ textAlign: "center" }}>
+                <div style={{ color: "#84CC16", fontWeight: 700, fontSize: 16 }}>{s.split(" ")[0]}</div>
+                <div style={{ color: "#64748B", fontSize: 11 }}>{s.split(" ").slice(1).join(" ")}</div>
+              </div>
+            ))}
           </div>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="bg-slate-800 text-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            <div className="lg:col-span-2">
-              <div className="flex items-center mb-6">
-                <div className="bg-white rounded-lg p-2 mr-4">
-                  <Shield className="h-8 w-8 text-slate-900" />
-                </div>
-                <div>
-                  <h3 className="text-xl font-bold">NOM-035 STPS</h3>
-                  <p className="text-slate-300">Sistema Empresarial de Evaluación Psicosocial</p>
-                </div>
-              </div>
-              <p className="text-slate-300 mb-6 max-w-md leading-relaxed">
-                Plataforma empresarial certificada diseñada para garantizar el cumplimiento 
-                integral de la NOM-035-STPS-2018 en organizaciones de todos los tamaños.
-              </p>
-              <div className="inline-flex items-center bg-slate-700 text-slate-200 text-sm px-3 py-1 rounded-full">
-                <Award className="h-4 w-4 mr-2" />
-                Certificación Oficial STPS
-              </div>
-            </div>
-            
-            <div>
-              <h4 className="text-lg font-semibold mb-6 text-white">Soluciones</h4>
-              <ul className="space-y-3">
-                <li><a href="#" className="text-slate-300 hover:text-white transition-colors">Evaluaciones Psicosociales</a></li>
-                <li><a href="#" className="text-slate-300 hover:text-white transition-colors">Dashboard Ejecutivo</a></li>
-                <li><a href="#" className="text-slate-300 hover:text-white transition-colors">Reportes de Compliance</a></li>
-                <li><a href="#" className="text-slate-300 hover:text-white transition-colors">Gestión de Intervenciones</a></li>
-                <li><a href="#" className="text-slate-300 hover:text-white transition-colors">Alertas Automáticas</a></li>
-              </ul>
-            </div>
-            
-            <div>
-              <h4 className="text-lg font-semibold mb-6 text-white">Cumplimiento</h4>
-              <ul className="space-y-3">
-                <li><a href="#" className="text-slate-300 hover:text-white transition-colors">NOM-035-STPS-2018</a></li>
-                <li><a href="#" className="text-slate-300 hover:text-white transition-colors">Guía de Referencia I</a></li>
-                <li><a href="#" className="text-slate-300 hover:text-white transition-colors">Guía de Referencia II</a></li>
-                <li><a href="#" className="text-slate-300 hover:text-white transition-colors">Guía de Referencia III</a></li>
-                <li><a href="#" className="text-slate-300 hover:text-white transition-colors">Auditorías STPS</a></li>
-              </ul>
-            </div>
-          </div>
-          
-          <div className="border-t border-slate-700 mt-12 pt-8 flex flex-col md:flex-row justify-between items-center">
-            <div className="text-slate-400 text-sm mb-4 md:mb-0">
-              &copy; 2024 Sistema NOM-035-STPS. Todos los derechos reservados. Cumplimiento certificado de la normativa mexicana.
-            </div>
-            <div className="flex space-x-6">
-              <a href="#" className="text-slate-400 hover:text-white text-sm transition-colors">Términos de Servicio</a>
-              <a href="#" className="text-slate-400 hover:text-white text-sm transition-colors">Política de Privacidad</a>
-              <a href="#" className="text-slate-400 hover:text-white text-sm transition-colors">Soporte Técnico</a>
-            </div>
-          </div>
-        </div>
+      <footer style={{ background: "#0F1E38", padding: "20px 24px", textAlign: "center" }}>
+        <p style={{ color: "#475569", fontSize: 12, margin: 0 }}>
+          © {new Date().getFullYear()} NOM-035 Platform · Sistema certificado para cumplimiento de NOM-035-STPS-2018
+        </p>
       </footer>
     </div>
   );

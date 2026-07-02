@@ -416,9 +416,16 @@ export default function Dashboard() {
           <h3 className="text-lg font-semibold text-slate-900">Evaluaciones Recientes</h3>
         </div>
         {recentEvaluations.length === 0 ? (
-          <div className="p-6 text-center text-slate-500">
-            <i className="fas fa-clipboard-list text-4xl mb-4"></i>
-            <p>No hay evaluaciones completadas aún</p>
+          <div className="empty-state" style={{ minHeight: 160 }}>
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#CBD5E1" strokeWidth="1.5">
+              <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+            </svg>
+            <p className="font-medium text-sm">Sin evaluaciones completadas aún</p>
+            <p className="text-xs text-slate-400 mb-3">Las evaluaciones aparecerán aquí una vez que los empleados completen sus cuestionarios</p>
+            <button onClick={() => setLocation("/invitations")}
+              className="btn-lime text-xs px-4 py-2 rounded-lg font-semibold">
+              Enviar cuestionarios a empleados
+            </button>
           </div>
         ) : (
           <div className="overflow-x-auto">
