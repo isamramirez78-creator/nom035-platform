@@ -181,9 +181,8 @@ export function registerExpedienteRoutes(app: Express) {
 
   // ── GET endpoint para importación CSV ───────────────────────────────────────
   // (El endpoint /api/employees/import ya existe, solo ajustamos el mapeo de campos)
-}
 
-// ── Documentos Normativos NOM-035 ─────────────────────────────────────────────
+  // ── Documentos Normativos NOM-035 ─────────────────────────────────────────────
 
   // GET — listar documentos normativos de la empresa
   app.get("/api/documentos-normativos", authenticateCompany, async (req: any, res) => {
@@ -238,3 +237,4 @@ export function registerExpedienteRoutes(app: Express) {
   app.get("/api/plantillas-nom035/:id", authenticateCompany, async (req, res) => {
     res.status(404).json({ message: "Plantilla próximamente disponible" });
   });
+}

@@ -1,6 +1,4 @@
 import type { Express } from "express";
-import { registerExpedienteRoutes } from "./expediente-routes";
-import { registerComplianceRoutes } from "./compliance-routes";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { emailService } from "./email-service";
@@ -1296,9 +1294,16 @@ Equipo de Recursos Humanos
 
   const httpServer = createServer(app);
   // ── Expedientes de trabajadores en riesgo ──────────────────────────────────
-  // ── Rutas adicionales (ya importadas estáticamente al inicio) ──────────────
-  registerExpedienteRoutes(app);
-  registerComplianceRoutes(app);
+  // ── Rutas adicionales ──────────────────────────────────────────────────────
+  try {
+    const { registerExpedienteRoutes } = await import("./expediente-routes.js");
+    registerExpedienteRoutes(app);
+  } catch(e) { console.error("expediente-routes error:", e); }
+
+  try {
+    const { registerComplianceRoutes } = await import("./compliance-routes.js");
+    registerComplianceRoutes(app);
+  } catch(e) { console.error("compliance-routes error:", e); }
 
   return httpServer;
 }
