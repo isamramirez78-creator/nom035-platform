@@ -1372,17 +1372,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Invitación no válida o ya completada" });
       }
 
-      // Guardar evaluación
+      // Guardar evaluación usando columnas reales de la tabla
+      const overallScore = results?.overallScore || results?.overall_score || 0;
+      const riskLevel = results?.riskLevel || results?.risk_level || 'medio';
+      const domainScores = JSON.stringify(results?.domainScores || results?.domain_scores || []);
+      const answersJson = JSON.stringify(Array.isArray(answers) ? answers : []);
+
       const evalResult = await db.execute(sql`
         INSERT INTO evaluations 
           (employee_id, company_id, questionnaire_type, answers, overall_score, 
-           risk_level, domain_scores, completed, completed_at)
+           risk_level, "domainScores", completed, completed_at)
         VALUES 
           (${employeeId}, ${invitation.company_id}, ${questionnaireType},
-           ${JSON.stringify(answers || {})},
-           ${results?.overallScore || results?.overall_score || 0},
-           ${results?.riskLevel || results?.risk_level || 'medio'},
-           ${JSON.stringify(results?.domainScores || results?.domain_scores || [])},
+           ${answersJson}::jsonb,
+           ${overallScore},
+           ${riskLevel},
+           ${domainScores}::jsonb,
            true, NOW())
         RETURNING *
       `);
