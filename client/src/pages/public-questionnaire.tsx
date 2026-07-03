@@ -39,6 +39,9 @@ export default function PublicQuestionnaire() {
     enabled: !!token
   });
 
+  // Alias para compatibilidad con el resto del componente
+  const invitationDetails = invitation as any;
+
   useEffect(() => {
     if ((invitation as any)?.status === 'completed') {
       // Redirect completed invitations to results page
