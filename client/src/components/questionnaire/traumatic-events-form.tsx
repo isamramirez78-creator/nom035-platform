@@ -36,7 +36,18 @@ export default function TraumaticEventsForm({ employeeId, invitationToken, onCom
 
   const saveEvaluationMutation = useMutation({
     mutationFn: async (evaluationData: any) => {
-      const response = await apiRequest("POST", "/api/evaluations", evaluationData);
+      const url = "/api/evaluations";
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      const tk = localStorage.getItem("company_token");
+      if (tk) headers["Authorization"] = `Bearer ${tk}`;
+      const response = await fetch(url, {
+        method: "POST", headers, body: JSON.stringify(evaluationData)
+      });
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(JSON.stringify(err));
+      }
+      return response;
       return response.json();
     },
     onSuccess: () => {
@@ -122,10 +133,10 @@ export default function TraumaticEventsForm({ employeeId, invitationToken, onCom
       requiresMedicalAttention: traumaticResult.requiresAttention,
       requiresPsychologicalAttention: traumaticResult.requiresAttention,
       traumaticEvents: traumaticResult,
-      hasTraumaticExposure: traumaticResult.hasTraumaticExposure
+      hasTraumaticExposure: traumaticResult.hasTraumaticExposure,
+      invitationToken: invitationToken || null
     };
 
-    // Use the regular evaluations endpoint but with traumatic_events type
     saveEvaluationMutation.mutate(evaluationData);
   };
 
