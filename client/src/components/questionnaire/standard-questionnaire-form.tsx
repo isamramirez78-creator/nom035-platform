@@ -55,7 +55,16 @@ export default function StandardQuestionnaireForm({
 
   const submitEvaluationMutation = useMutation({
     mutationFn: async (evaluationData: any) => {
-      return await apiRequest("POST", "/api/evaluations", evaluationData);
+      // Siempre usar endpoint público cuando hay invitationToken
+      const url = "/api/evaluations/public";
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(evaluationData),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message || "Error al guardar");
+      return json;
     },
     onSuccess: () => {
       toast({
@@ -114,7 +123,7 @@ export default function StandardQuestionnaireForm({
       const evaluationData = {
         employeeId,
         questionnaireType,
-        answers,
+        answers: answersList,  // array format for public endpoint
         results: evaluation,
         invitationToken
       };
