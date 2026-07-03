@@ -12,10 +12,10 @@ const h = (json = true) => ({
   ...(token() ? { Authorization: `Bearer ${token()}` } : {}),
 });
 
-const TIPOS = [
-  { value: "guia1", label: "Guía I — Acontec. traumáticos severos (todos)" },
-  { value: "guia2", label: "Guía II — Factores de riesgo (16-50 trabajadores)" },
-  { value: "guia3", label: "Guía III — Evaluación completa (+50 trabajadores)" },
+const TODOS_TIPOS = [
+  { value: "guia1", label: "Guía I — Acontec. traumáticos severos", desc: "Obligatoria para todos los tamaños de empresa", minEmployees: 0 },
+  { value: "guia2", label: "Guía II — Factores de riesgo psicosocial", desc: "Empresas de 16 a 50 trabajadores", minEmployees: 16 },
+  { value: "guia3", label: "Guía III — Evaluación completa NOM-035", desc: "Empresas con más de 50 trabajadores", minEmployees: 51 },
 ];
 
 const STATUS_COLORS: Record<string, { bg: string; color: string; label: string }> = {
@@ -33,6 +33,22 @@ export default function EmployeeInvitations() {
   const [dias, setDias] = useState(10);
   const [search, setSearch] = useState("");
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
+
+  const { data: access } = useQuery<any>({
+    queryKey: ["/api/company/questionnaire-access"],
+    queryFn: async () => {
+      const res = await fetch("/api/company/questionnaire-access", { headers: h() });
+      return res.ok ? res.json() : { guia1: true, guia2: false, guia3: false, numEmpleados: 0 };
+    },
+  });
+
+  // Filtrar guías disponibles según plan y número de empleados
+  const TIPOS = TODOS_TIPOS.filter(t => {
+    if (t.value === "guia1") return true; // siempre disponible
+    if (t.value === "guia2") return access?.guia2 || (access?.numEmpleados >= 16 && access?.numEmpleados <= 50);
+    if (t.value === "guia3") return access?.guia3 || access?.numEmpleados > 50;
+    return false;
+  });
 
   const { data: employees = [] } = useQuery<any[]>({
     queryKey: ["/api/employees"],
@@ -134,9 +150,27 @@ export default function EmployeeInvitations() {
               <Select value={tipo} onValueChange={setTipo}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {TIPOS.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+                  {TODOS_TIPOS.map(t => {
+                    const available = TIPOS.find(tp => tp.value === t.value);
+                    return (
+                      <SelectItem key={t.value} value={t.value} disabled={!available}>
+                        <div>
+                          <div className={!available ? "text-slate-400" : ""}>{t.label}</div>
+                          <div className="text-xs text-slate-400">{t.desc}{!available ? " — No disponible con tu plan/empleados" : ""}</div>
+                        </div>
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
+              {access && (
+                <p className="text-xs text-slate-500 mt-1">
+                  Tu empresa tiene <strong>{access.numEmpleados}</strong> empleados registrados.
+                  {access.numEmpleados < 16 && " Solo aplica Guía I."}
+                  {access.numEmpleados >= 16 && access.numEmpleados <= 50 && " Aplican Guías I y II."}
+                  {access.numEmpleados > 50 && " Aplican Guías I, II y III."}
+                </p>
+              )}
             </div>
             <div>
               <label className="text-xs font-medium text-slate-500 mb-1.5 block">Días de validez del link</label>
