@@ -39,6 +39,9 @@ export default function PublicQuestionnaire() {
     enabled: !!token
   });
 
+  // Alias para compatibilidad
+  const invitationDetails = invitation as any;
+
   useEffect(() => {
     if ((invitation as any)?.status === 'completed') {
       // Ya completado — se mostrará la pantalla de éxito
