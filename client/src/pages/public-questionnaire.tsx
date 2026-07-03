@@ -28,7 +28,25 @@ const questionnaireTypeNames: { [key: string]: string } = {
   'traumatic_events': 'Cuestionario de Acontecimientos Traumáticos Severos'
 };
 
+// Monkey-patch fetch para interceptar evaluaciones en modo público
+const originalFetch = window.fetch;
+(window as any)._nom035_patch = true;
+
 export default function PublicQuestionnaire() {
+  // Interceptar fetch para redirigir /api/evaluations → /api/evaluations/public
+  if (!(window as any)._nom035_patched) {
+    (window as any)._nom035_patched = true;
+    window.fetch = async function(input: RequestInfo | URL, init?: RequestInit) {
+      const url = typeof input === 'string' ? input : input.toString();
+      if (url.endsWith('/api/evaluations') && init?.method === 'POST') {
+        const body = JSON.parse(init.body as string);
+        if (body.invitationToken) {
+          return originalFetch('/api/evaluations/public', init);
+        }
+      }
+      return originalFetch(input, init);
+    };
+  }
   const params = useParams();
   const token = params.token;
   const [hasStarted, setHasStarted] = useState(false);
