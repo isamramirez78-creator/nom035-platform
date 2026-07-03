@@ -1354,13 +1354,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // No requiere login - usa el invitationToken como verificación
   app.post("/api/evaluations/public", async (req, res) => {
     try {
-      const { employeeId, questionnaireType, answers, results, invitationToken } = req.body;
+      const { employeeId: bodyEmployeeId, questionnaireType, answers, results, invitationToken } = req.body;
 
       if (!invitationToken) {
         return res.status(400).json({ message: "Token de invitación requerido" });
       }
 
-      // Verificar token
+      // Verificar token y obtener datos reales de la invitación
       const invResult = await db.execute(sql`
         SELECT * FROM questionnaire_invitations 
         WHERE access_token = ${invitationToken} AND status = 'pending'
@@ -1372,8 +1372,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Invitación no válida o ya completada" });
       }
 
+      // Usar employee_id de la invitación (más confiable que el del body)
+      const employeeId = invitation.employee_id || bodyEmployeeId;
+      const companyId = invitation.company_id;
+
+      if (!employeeId) {
+        return res.status(400).json({ message: "No se pudo identificar al empleado" });
+      }
+
       // Guardar evaluación usando columnas reales de la tabla
-      const overallScore = results?.overallScore || results?.overall_score || 0;
+      const overallScore = parseInt(results?.overallScore || results?.overall_score || 0);
       const riskLevel = results?.riskLevel || results?.risk_level || 'medio';
       const domainScores = JSON.stringify(results?.domainScores || results?.domain_scores || []);
       const answersJson = JSON.stringify(Array.isArray(answers) ? answers : []);
@@ -1383,9 +1391,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           (employee_id, company_id, questionnaire_type, answers, overall_score, 
            risk_level, "domainScores", completed, completed_at)
         VALUES 
-          (${employeeId}, ${invitation.company_id}, ${questionnaireType},
+          (${employeeId}::integer, ${companyId}::integer, ${questionnaireType},
            ${answersJson}::jsonb,
-           ${overallScore},
+           ${overallScore}::integer,
            ${riskLevel},
            ${domainScores}::jsonb,
            true, NOW())
