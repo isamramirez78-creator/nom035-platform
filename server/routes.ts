@@ -1145,35 +1145,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const expiresAt = new Date();
         expiresAt.setDate(expiresAt.getDate() + (expirationDays || 10));
 
-        const invitation = await storage.createQuestionnaireInvitation({
-          employeeId,
-          companyId,
-          questionnaireType: questionnaireType || 'guia3',
-          accessToken,
-          invitedBy: req.company.correoElectronico || 'admin',
-          expiresAt,
-          status: 'pending',
-          reminderCount: 0,
-          customMessage: customMessage || null,
-        });
-
+        const invResult = await db.execute(sql`
+          INSERT INTO questionnaire_invitations
+            (employee_id, company_id, questionnaire_type, access_token, invited_by, expires_at, status, custom_message)
+          VALUES
+            (${employeeId}, ${companyId}, ${questionnaireType || 'guia3'}, ${accessToken},
+             ${req.company.correoElectronico || 'admin'}, ${expiresAt.toISOString()}, 'pending', ${customMessage || null})
+          RETURNING *
+        `);
+        const invitation = invResult.rows[0];
         invitations.push(invitation);
 
-        // Intentar enviar email si el empleado tiene correo y SendGrid está configurado
+        // Intentar enviar email usando SMTP de la empresa
         const employee = await storage.getEmployee(employeeId);
-        if (employee?.email && process.env.SENDGRID_API_KEY) {
-          const link = `${baseUrl}/cuestionario/${accessToken}`;
+        const company = req.company;
+        const link = `${baseUrl}/cuestionario/${accessToken}`;
+
+        if (employee?.email && company.smtp_enabled && company.smtp_host && company.smtp_user && company.smtp_password) {
           try {
-            await storage.createEmailNotification({
-              employeeId,
-              type: 'questionnaire-invitation',
-              recipientEmails: [employee.email],
-              subject: 'Invitación — Cuestionario NOM-035-STPS',
-              content: `Hola ${employee.nombre}, te invitamos a completar el cuestionario NOM-035. Link: ${link}`,
-              status: 'pending',
-            });
+            const emailHtml = `
+              <div style="font-family:Inter,sans-serif;max-width:600px;margin:0 auto;padding:20px">
+                <div style="background:#1E3A5F;padding:20px;border-radius:8px;margin-bottom:20px">
+                  <h2 style="color:white;margin:0">NOM-035-STPS</h2>
+                  <p style="color:#84CC16;margin:4px 0 0;font-size:13px">Evaluación de Factores de Riesgo Psicosocial</p>
+                </div>
+                <p>Estimado/a <strong>${employee.nombre} ${employee.apellidos || ""}</strong>,</p>
+                <p>Te invitamos a completar el cuestionario de evaluación de riesgos psicosociales conforme a la <strong>NOM-035-STPS-2018</strong>.</p>
+                ${customMessage ? `<p style="background:#F8FAFC;padding:12px;border-radius:8px;border-left:4px solid #84CC16">${customMessage}</p>` : ""}
+                <div style="text-align:center;margin:30px 0">
+                  <a href="${link}" style="background:#1E3A5F;color:white;padding:14px 32px;border-radius:8px;text-decoration:none;font-weight:600;display:inline-block">
+                    Completar cuestionario →
+                  </a>
+                </div>
+                <p style="color:#64748B;font-size:13px">Este enlace es válido hasta el ${expiresAt.toLocaleDateString("es-MX")}.</p>
+                <p style="color:#64748B;font-size:12px">Si el botón no funciona, copia este link: ${link}</p>
+              </div>`;
+
+            await sendEmail({
+              host: company.smtp_host, port: company.smtp_port || 587,
+              user: company.smtp_user, password: company.smtp_password,
+              fromName: company.smtp_from_name || company.razon_social || "RRHH",
+              fromEmail: company.smtp_user,
+            }, employee.email, "Invitación — Cuestionario NOM-035-STPS", emailHtml);
           } catch (emailErr) {
-            console.warn('Email notification skipped:', emailErr);
+            console.warn("SMTP send failed:", emailErr);
           }
         }
       }
@@ -1187,8 +1202,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/questionnaire-invitations", authenticateCompany, async (req: any, res) => {
     try {
-      const invitations = await storage.getPendingInvitations(req.company?.id);
-      res.json(invitations);
+      const rows = await db.execute(sql`
+        SELECT qi.*, e.nombre, e.apellidos, e.apellido_paterno, e.area, e.email
+        FROM questionnaire_invitations qi
+        LEFT JOIN employees e ON e.id = qi.employee_id
+        WHERE qi.company_id = ${req.company.id}
+        ORDER BY qi.created_at DESC
+      `);
+      res.json(rows.rows);
     } catch (error) {
       console.error("Error fetching invitations:", error);
       res.status(500).json({ message: "Error al obtener invitaciones" });
@@ -1231,32 +1252,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/questionnaire/:token", async (req, res) => {
     try {
       const { token } = req.params;
-      const invitation = await storage.getQuestionnaireInvitation(token);
-      
+      const result = await db.execute(sql`
+        SELECT qi.*, e.nombre, e.apellidos, e.apellido_paterno, e.apellido_materno,
+               e.puesto, e.area, e.email, e.rfc, e.curp, e.numero_empleado
+        FROM questionnaire_invitations qi
+        LEFT JOIN employees e ON e.id = qi.employee_id
+        WHERE qi.access_token = ${token}
+        LIMIT 1
+      `);
+
+      const invitation = result.rows[0] as any;
+
       if (!invitation) {
-        return res.status(404).json({ message: "Invalid invitation token" });
+        return res.status(404).json({ message: "Enlace no válido o no encontrado" });
       }
 
       if (invitation.status === 'completed') {
-        return res.status(400).json({ message: "Questionnaire already completed" });
+        return res.status(400).json({ message: "Este cuestionario ya fue completado" });
       }
 
-      if (new Date() > new Date(invitation.expiresAt)) {
-        await storage.updateQuestionnaireInvitationStatus(invitation.id, 'expired');
-        return res.status(400).json({ message: "Invitation has expired" });
+      if (new Date() > new Date(invitation.expires_at)) {
+        await db.execute(sql`UPDATE questionnaire_invitations SET status = 'expired' WHERE access_token = ${token}`);
+        return res.status(400).json({ message: "Este enlace ha expirado" });
       }
 
-      // Get employee details
-      const employee = await storage.getEmployee(invitation.employeeId);
-      
       res.json({
-        invitation,
-        employee,
-        questionnaireType: invitation.questionnaireType
+        invitation: {
+          id: invitation.id,
+          accessToken: invitation.access_token,
+          questionnaireType: invitation.questionnaire_type,
+          status: invitation.status,
+          expiresAt: invitation.expires_at,
+          customMessage: invitation.custom_message,
+        },
+        employee: {
+          id: invitation.employee_id,
+          nombre: invitation.nombre,
+          apellidos: invitation.apellidos || `${invitation.apellido_paterno || ''} ${invitation.apellido_materno || ''}`.trim(),
+          puesto: invitation.puesto,
+          area: invitation.area,
+          email: invitation.email,
+          rfc: invitation.rfc,
+          curp: invitation.curp,
+          numeroEmpleado: invitation.numero_empleado,
+        },
+        questionnaireType: invitation.questionnaire_type,
       });
     } catch (error) {
       console.error("Error validating invitation:", error);
-      res.status(500).json({ message: "Error validating invitation" });
+      res.status(500).json({ message: "Error al validar el enlace" });
     }
   });
 
