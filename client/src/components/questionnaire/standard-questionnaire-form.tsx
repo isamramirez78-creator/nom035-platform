@@ -38,7 +38,6 @@ export default function StandardQuestionnaireForm({
   // Get the appropriate questionnaire based on type
   const getQuestionnaire = () => {
     switch (questionnaireType) {
-      // Tipos NOM-035 (nuevos)
       case "guia1":
       case "traumatic_events":
       case "microenterprise":
@@ -48,9 +47,8 @@ export default function StandardQuestionnaireForm({
         return guideIIQuestionnaire;
       case "guia3":
       case "guide_iii":
-        return guideIIIQuestionnaire;
       default:
-        return guideIIIQuestionnaire; // Default Guía III (más completa)
+        return guideIIIQuestionnaire;
     }
   };
 
@@ -60,15 +58,14 @@ export default function StandardQuestionnaireForm({
 
   const submitEvaluationMutation = useMutation({
     mutationFn: async (evaluationData: any) => {
-      // Siempre usar endpoint público cuando hay invitationToken
-      const url = "/api/evaluations/public";
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(evaluationData),
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      const tk = localStorage.getItem("company_token");
+      if (tk) headers["Authorization"] = `Bearer ${tk}`;
+      const res = await fetch("/api/evaluations", {
+        method: "POST", headers, body: JSON.stringify(evaluationData),
       });
       const json = await res.json();
-      if (!res.ok) throw new Error(json.message || "Error al guardar");
+      if (!res.ok) throw new Error(JSON.stringify(json));
       return json;
     },
     onSuccess: () => {
@@ -120,15 +117,15 @@ export default function StandardQuestionnaireForm({
       }));
 
       const evaluation = calculateOfficialNOM035Evaluation(
-        employeeId,
         answersList,
-        50 // Default company size
+        questionnaireType,
+        50 // Default company size - should be determined by actual company
       );
 
       const evaluationData = {
         employeeId,
         questionnaireType,
-        answers: answersList,  // array format for public endpoint
+        answers,
         results: evaluation,
         invitationToken
       };

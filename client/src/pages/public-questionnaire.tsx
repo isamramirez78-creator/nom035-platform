@@ -28,25 +28,7 @@ const questionnaireTypeNames: { [key: string]: string } = {
   'traumatic_events': 'Cuestionario de Acontecimientos Traumáticos Severos'
 };
 
-// Monkey-patch fetch para interceptar evaluaciones en modo público
-const originalFetch = window.fetch;
-(window as any)._nom035_patch = true;
-
 export default function PublicQuestionnaire() {
-  // Interceptar fetch para redirigir /api/evaluations → /api/evaluations/public
-  if (!(window as any)._nom035_patched) {
-    (window as any)._nom035_patched = true;
-    window.fetch = async function(input: RequestInfo | URL, init?: RequestInit) {
-      const url = typeof input === 'string' ? input : input.toString();
-      if (url.endsWith('/api/evaluations') && init?.method === 'POST') {
-        const body = JSON.parse(init.body as string);
-        if (body.invitationToken) {
-          return originalFetch('/api/evaluations/public', init);
-        }
-      }
-      return originalFetch(input, init);
-    };
-  }
   const params = useParams();
   const token = params.token;
   const [hasStarted, setHasStarted] = useState(false);
@@ -57,12 +39,12 @@ export default function PublicQuestionnaire() {
     enabled: !!token
   });
 
-  // Alias para compatibilidad
   const invitationDetails = invitation as any;
 
   useEffect(() => {
     if ((invitation as any)?.status === 'completed') {
-      // Ya completado — se mostrará la pantalla de éxito
+      // Redirect completed invitations to results page
+      // window.location.href = `/results/${token}`;
     }
   }, [invitation, token]);
 
@@ -79,25 +61,20 @@ export default function PublicQuestionnaire() {
     );
   }
 
+  // Pantalla de éxito cuando ya fue completado
   if (invitationDetails?.status === 'completed') {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4" style={{ background: "linear-gradient(135deg, #F0FDF4 0%, #ECFCCB 100%)" }}>
+      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: "1rem", background: "linear-gradient(135deg, #F0FDF4, #ECFCCB)" }}>
         <div style={{ background: "white", borderRadius: 20, padding: "2.5rem", maxWidth: 480, width: "100%", textAlign: "center", boxShadow: "0 8px 32px rgba(0,0,0,0.08)" }}>
           <div style={{ width: 72, height: 72, background: "#ECFCCB", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 1.5rem" }}>
-            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#16A34A" strokeWidth="2.5">
-              <polyline points="20 6 9 17 4 12"/>
-            </svg>
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#16A34A" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
           </div>
           <h2 style={{ color: "#1E3A5F", fontSize: 22, fontWeight: 700, marginBottom: 8 }}>¡Evaluación completada!</h2>
           <p style={{ color: "#64748B", fontSize: 14, lineHeight: 1.6, marginBottom: 20 }}>
-            Tu cuestionario NOM-035 ha sido enviado correctamente. Gracias por tu participación.
+            Tu cuestionario NOM-035 fue enviado correctamente. Gracias por tu participación.
             Los resultados serán revisados por el área de Recursos Humanos.
           </p>
-          <div style={{ background: "#F8FAFC", borderRadius: 12, padding: "1rem", border: "0.5px solid #E2E8F0" }}>
-            <p style={{ color: "#94A3B8", fontSize: 12, margin: 0 }}>
-              Puedes cerrar esta ventana.
-            </p>
-          </div>
+          <p style={{ color: "#94A3B8", fontSize: 12 }}>Puedes cerrar esta ventana.</p>
         </div>
       </div>
     );
@@ -322,18 +299,14 @@ export default function PublicQuestionnaire() {
           <TraumaticEventsForm
             employeeId={invitationDetails.employeeId}
             invitationToken={token}
-            onComplete={() => {
-              window.location.reload();
-            }}
+            onComplete={() => { window.location.reload(); }}
           />
         ) : (
           <StandardQuestionnaireForm
             employeeId={invitationDetails.employee?.id || invitationDetails.employeeId}
             questionnaireType={invitationDetails.questionnaireType}
             invitationToken={token}
-            onComplete={() => {
-              window.location.reload();
-            }}
+            onComplete={() => { window.location.reload(); }}
           />
         )}
       </div>
