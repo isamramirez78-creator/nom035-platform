@@ -55,7 +55,21 @@ export default function StandardQuestionnaireForm({
 
   const submitEvaluationMutation = useMutation({
     mutationFn: async (evaluationData: any) => {
-      return await apiRequest("POST", "/api/evaluations", evaluationData);
+      // Usar endpoint público si hay token de invitación (empleado no logueado)
+      const token = localStorage.getItem("company_token");
+      const url = evaluationData.invitationToken ? "/api/evaluations/public" : "/api/evaluations";
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (token && !evaluationData.invitationToken) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
+      const res = await fetch(url, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(evaluationData),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message || "Error al guardar");
+      return json;
     },
     onSuccess: () => {
       toast({

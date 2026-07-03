@@ -1350,6 +1350,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Endpoint público para guardar evaluación desde cuestionario público
+  // No requiere login - usa el invitationToken como verificación
+  app.post("/api/evaluations/public", async (req, res) => {
+    try {
+      const { employeeId, questionnaireType, answers, results, invitationToken } = req.body;
+
+      if (!invitationToken) {
+        return res.status(400).json({ message: "Token de invitación requerido" });
+      }
+
+      // Verificar token
+      const invResult = await db.execute(sql`
+        SELECT * FROM questionnaire_invitations 
+        WHERE access_token = ${invitationToken} AND status = 'pending'
+        LIMIT 1
+      `);
+
+      const invitation = invResult.rows[0] as any;
+      if (!invitation) {
+        return res.status(404).json({ message: "Invitación no válida o ya completada" });
+      }
+
+      // Guardar evaluación
+      const evalResult = await db.execute(sql`
+        INSERT INTO evaluations 
+          (employee_id, company_id, questionnaire_type, answers, overall_score, 
+           risk_level, domain_scores, completed, completed_at)
+        VALUES 
+          (${employeeId}, ${invitation.company_id}, ${questionnaireType},
+           ${JSON.stringify(answers || {})},
+           ${results?.overallScore || results?.overall_score || 0},
+           ${results?.riskLevel || results?.risk_level || 'medio'},
+           ${JSON.stringify(results?.domainScores || results?.domain_scores || [])},
+           true, NOW())
+        RETURNING *
+      `);
+
+      // Marcar invitación como completada
+      await db.execute(sql`
+        UPDATE questionnaire_invitations 
+        SET status = 'completed', completed_at = NOW()
+        WHERE access_token = ${invitationToken}
+      `);
+
+      res.status(201).json({ 
+        success: true, 
+        message: "Evaluación guardada correctamente",
+        evaluation: evalResult.rows[0]
+      });
+    } catch (error: any) {
+      console.error("Error saving public evaluation:", error);
+      res.status(500).json({ message: error?.message || "Error al guardar la evaluación" });
+    }
+  });
+
   app.post("/api/questionnaire/:token/complete", async (req, res) => {
     try {
       const { token } = req.params;
