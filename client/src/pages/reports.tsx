@@ -27,7 +27,7 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { generateReport, generateExecutivePresentation } from "@/lib/masterReportGenerator";
+import { generateReport } from "@/lib/masterReportGenerator";
 
 interface GeneratedReport {
   id: string;
@@ -226,7 +226,7 @@ export default function Reports() {
         canalizationCount: stats?.canalizationCount || 3
       };
       
-      await generateReport(reportData);
+      await generateProfessionalReport(reportData);
       
       toast({
         title: "Reporte ejecutivo generado",
@@ -243,26 +243,22 @@ export default function Reports() {
   };
 
   const generatePDFReport = async (reportData: any) => {
-    if (reportData.templateId === 'executive-report') {
-      await generateExecutiveReport();
-      return;
-    }
-    
-    const { generateProfessionalReport } = await import('@/lib/pdfGenerator');
-    const { mockStats } = await import('@/lib/mockStats');
-    
-    // Use mock data if backend is failing
-    const reportDataWithStats = {
-      ...reportData,
-      stats: mockStats
+    // Mapear templateId al tipo correcto del masterReportGenerator
+    const typeMap: Record<string, string> = {
+      'executive-report':    'executive-dashboard',
+      'executive-dashboard': 'executive-dashboard',
+      'nom035-compliance':   'nom035-compliance',
+      'risk-analysis':       'executive-dashboard',
+      'area-report':         'area-report',
     };
-    
-    const result = await generateReport(reportDataWithStats);
-    
+    const reportType = typeMap[reportData.templateId] || 'executive-dashboard';
+    const params = reportData.filters?.area ? { area: reportData.filters.area } : undefined;
+    const result = await generateReport(reportType, params);
+
     if (result.success) {
       toast({
-        title: "Reporte profesional generado",
-        description: `${result.fileName} descargado correctamente`,
+        title: "Reporte generado",
+        description: `Reporte descargado correctamente`,
       });
     } else {
       toast({

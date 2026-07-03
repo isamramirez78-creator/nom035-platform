@@ -34,12 +34,12 @@ export default function Employees() {
 
   const deleteEmployeeMutation = useMutation({
     mutationFn: async (id: number) => {
+      const tk = localStorage.getItem("company_token");
       const response = await fetch(`/api/employees/${id}`, {
         method: "DELETE",
+        headers: tk ? { Authorization: `Bearer ${tk}` } : {},
       });
-      if (!response.ok) {
-        throw new Error("Error al eliminar empleado");
-      }
+      if (!response.ok) throw new Error("Error al eliminar empleado");
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/employees"] });

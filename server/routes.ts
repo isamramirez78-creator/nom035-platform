@@ -169,7 +169,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/employees/:id", async (req, res) => {
+  app.delete("/api/employees/:id", authenticateCompany, async (req: any, res) => {
     try {
       const id = parseInt(req.params.id);
       const deleted = await storage.deleteEmployee(id);
@@ -1199,6 +1199,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       res.json({ message: "Link disponible para copiar manualmente" });
     } catch (error) {
+      res.status(500).json({ message: "Error" });
+    }
+  });
+
+  // Validar qué guías puede usar la empresa según plan y número de trabajadores
+  app.get("/api/company/questionnaire-access", authenticateCompany, async (req: any, res) => {
+    try {
+      const company = req.company;
+      const numEmpleados = company.cantidadEmpleados || company.cantidad_empleados || 0;
+      const plan = company.subscriptionPlan || company.subscription_plan || 'trial';
+      const isAdmin = company.isAdmin || company.is_admin;
+
+      // Guía I — todos (acontec. traumáticos severos)
+      // Guía II — 16-50 trabajadores
+      // Guía III — más de 50 trabajadores
+      const access = {
+        guia1: true, // siempre disponible
+        guia2: isAdmin || numEmpleados >= 16 || ['professional', 'enterprise'].includes(plan),
+        guia3: isAdmin || numEmpleados > 50  || plan === 'enterprise',
+        maxEmployees: company.maxEmployees || company.max_employees || 5,
+        plan,
+        numEmpleados,
+      };
+      res.json(access);
+    } catch (err) {
       res.status(500).json({ message: "Error" });
     }
   });
