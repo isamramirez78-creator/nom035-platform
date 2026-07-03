@@ -21,6 +21,7 @@ const EmployeeImport      = lazy(() => import("@/pages/employee-import"));
 const Interventions       = lazy(() => import("@/pages/interventions"));
 const CompanyProfile      = lazy(() => import("@/pages/company-profile"));
 const Notifications       = lazy(() => import("@/pages/notifications"));
+const EmployeeDetail      = lazy(() => import("@/pages/employee-detail"));
 
 const Loading = () => <div style={{padding:"2rem",color:"#64748B",fontFamily:"Inter,sans-serif"}}>Cargando...</div>;
 
@@ -49,6 +50,7 @@ function Protected({ component: Component }: { component: ComponentType }) {
           ["/reports","Reportes"],
           ["/expedientes","Expedientes"],
           ["/compliance-dashboard","Cumplimiento"],
+          ["/import","Importar"],
           ["/interventions","Intervenciones"],
         ].map(([p,l]) => (
           <a key={p} href={p} style={{ color: "#94A3B8", padding: "10px 14px", fontSize: 12, textDecoration: "none", whiteSpace: "nowrap",
@@ -78,7 +80,8 @@ const ExpedientesRoute   = () => <Protected component={Expedientes} />;
 const ImportRoute        = () => <Protected component={EmployeeImport} />;
 const InterventionsRoute = () => <Protected component={Interventions} />;
 const ProfileRoute       = () => <Protected component={CompanyProfile} />;
-const NotificationsRoute = () => <Protected component={Notifications} />;
+const NotificationsRoute  = () => <Protected component={Notifications} />;
+const EmployeeDetailRoute = () => <Protected component={EmployeeDetail} />;
 
 // Componentes de ruta pública
 const LandingRoute    = () => <Suspense fallback={<Loading />}><Landing /></Suspense>;
@@ -105,7 +108,7 @@ function App() {
           <Route path="/dashboard"            component={DashboardRoute} />
           <Route path="/onboarding"           component={OnboardingRoute} />
           <Route path="/employees"            component={EmployeesRoute} />
-          <Route path="/employees/:id"        component={EmployeesRoute} />
+          <Route path="/employees/:id"        component={EmployeeDetailRoute} />
           <Route path="/reports"              component={ReportsRoute} />
           <Route path="/invitations"          component={InvitationsRoute} />
           <Route path="/compliance-dashboard" component={CumplimientoRoute} />

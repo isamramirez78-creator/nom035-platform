@@ -1128,87 +1128,78 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Questionnaire invitation routes
-  app.post("/api/questionnaire-invitations", async (req, res) => {
+  app.post("/api/questionnaire-invitations", authenticateCompany, async (req: any, res) => {
     try {
-      const { employeeIds, questionnaireType, message, customMessage, invitedBy } = req.body;
-      
+      const companyId = req.company?.id;
+      const { employeeIds, questionnaireType, customMessage, expirationDays } = req.body;
+
       if (!employeeIds || !Array.isArray(employeeIds) || employeeIds.length === 0) {
-        return res.status(400).json({ message: "Employee IDs are required" });
+        return res.status(400).json({ message: "Selecciona al menos un empleado" });
       }
 
       const invitations = [];
-      
+      const baseUrl = process.env.BASE_URL || `https://${req.get('host')}`;
+
       for (const employeeId of employeeIds) {
-        // Generate unique access token
-        const accessToken = `questionnaire_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-        
-        // Set expiration date (10 days from now)
+        const accessToken = `inv_${companyId}_${employeeId}_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
         const expiresAt = new Date();
-        expiresAt.setDate(expiresAt.getDate() + 10);
+        expiresAt.setDate(expiresAt.getDate() + (expirationDays || 10));
 
         const invitation = await storage.createQuestionnaireInvitation({
           employeeId,
-          companyId: 1, // Default company
-          questionnaireType: questionnaireType || 'microempresa',
+          companyId,
+          questionnaireType: questionnaireType || 'guia3',
           accessToken,
-          invitedBy: invitedBy || 'administrador@empresa.com',
+          invitedBy: req.company.correoElectronico || 'admin',
           expiresAt,
           status: 'pending',
           reminderCount: 0,
-          customMessage: customMessage || undefined
+          customMessage: customMessage || null,
         });
 
-        // Get employee details for email
-        const employee = await storage.getEmployee(employeeId);
-        
-        if (employee && employee.email) {
-          // Create email notification
-          const emailContent = `
-Estimado/a ${employee.nombre} ${employee.apellidos},
-
-Le invitamos a completar el cuestionario de evaluación de riesgos psicosociales NOM-035-STPS.
-
-${message ? `Mensaje del administrador: ${message}` : ''}
-
-Para acceder al cuestionario, haga clic en el siguiente enlace:
-${process.env.REPLIT_DEV_DOMAIN || 'https://localhost:5000'}/questionnaire/${accessToken}
-
-Este enlace es válido hasta el ${expiresAt.toLocaleDateString('es-MX')}.
-
-Atentamente,
-Equipo de Recursos Humanos
-          `;
-
-          await storage.createEmailNotification({
-            employeeId,
-            type: 'questionnaire-invitation',
-            recipientEmails: [employee.email],
-            subject: 'Invitación para completar cuestionario NOM-035-STPS',
-            content: emailContent,
-            status: 'pending'
-          });
-        }
-
         invitations.push(invitation);
+
+        // Intentar enviar email si el empleado tiene correo y SendGrid está configurado
+        const employee = await storage.getEmployee(employeeId);
+        if (employee?.email && process.env.SENDGRID_API_KEY) {
+          const link = `${baseUrl}/cuestionario/${accessToken}`;
+          try {
+            await storage.createEmailNotification({
+              employeeId,
+              type: 'questionnaire-invitation',
+              recipientEmails: [employee.email],
+              subject: 'Invitación — Cuestionario NOM-035-STPS',
+              content: `Hola ${employee.nombre}, te invitamos a completar el cuestionario NOM-035. Link: ${link}`,
+              status: 'pending',
+            });
+          } catch (emailErr) {
+            console.warn('Email notification skipped:', emailErr);
+          }
+        }
       }
 
-      res.status(201).json({ 
-        message: `${invitations.length} invitations sent successfully`,
-        invitations 
-      });
-    } catch (error) {
-      console.error("Error creating questionnaire invitations:", error);
-      res.status(500).json({ message: "Error creating invitations" });
+      res.status(201).json(invitations);
+    } catch (error: any) {
+      console.error("Error creating invitations:", error);
+      res.status(500).json({ message: error?.message || "Error al crear invitaciones" });
     }
   });
 
-  app.get("/api/questionnaire-invitations", async (req, res) => {
+  app.get("/api/questionnaire-invitations", authenticateCompany, async (req: any, res) => {
     try {
-      const invitations = await storage.getPendingInvitations(1); // Default company
+      const invitations = await storage.getPendingInvitations(req.company?.id);
       res.json(invitations);
     } catch (error) {
       console.error("Error fetching invitations:", error);
-      res.status(500).json({ message: "Error fetching invitations" });
+      res.status(500).json({ message: "Error al obtener invitaciones" });
+    }
+  });
+
+  app.post("/api/questionnaire-invitations/:id/resend", authenticateCompany, async (req: any, res) => {
+    try {
+      res.json({ message: "Link disponible para copiar manualmente" });
+    } catch (error) {
+      res.status(500).json({ message: "Error" });
     }
   });
 
