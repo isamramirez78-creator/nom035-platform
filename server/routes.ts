@@ -1273,7 +1273,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Este cuestionario ya fue completado" });
       }
 
-      if (new Date() > new Date(invitation.expires_at)) {
+      // Solo validar expiración si expires_at tiene valor
+      if (invitation.expires_at && new Date() > new Date(invitation.expires_at)) {
         await db.execute(sql`UPDATE questionnaire_invitations SET status = 'expired' WHERE access_token = ${token}`);
         return res.status(400).json({ message: "Este enlace ha expirado" });
       }
