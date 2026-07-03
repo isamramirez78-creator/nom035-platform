@@ -207,6 +207,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/evaluations", async (req, res) => {
     try {
+      // Si viene invitationToken, redirigir al endpoint público
+      if (req.body.invitationToken) {
+        const { employeeId: bodyEmpId, questionnaireType, answers, results, invitationToken } = req.body;
+
+        const invResult = await db.execute(sql`
+          SELECT * FROM questionnaire_invitations 
+          WHERE access_token = ${invitationToken} AND status = 'pending'
+          LIMIT 1
+        `);
+        const invitation = invResult.rows[0] as any;
+        if (!invitation) return res.status(404).json({ message: "Invitación no válida" });
+
+        const employeeId = invitation.employee_id;
+        const companyId = invitation.company_id;
+        const overallScore = parseInt(results?.overallScore || results?.overall_score || 0) || 0;
+        const riskLevel = results?.riskLevel || results?.risk_level || 'medio';
+        const domainScores = JSON.stringify(results?.domainScores || results?.domain_scores || []);
+        const answersJson = JSON.stringify(Array.isArray(answers) ? answers : []);
+
+        await db.execute(sql`
+          INSERT INTO evaluations 
+            (employee_id, company_id, questionnaire_type, answers, overall_score, 
+             risk_level, "domainScores", completed, completed_at)
+          VALUES 
+            (${employeeId}::integer, ${companyId}::integer, ${questionnaireType || 'guia3'},
+             ${answersJson}::jsonb, ${overallScore}::integer, ${riskLevel},
+             ${domainScores}::jsonb, true, NOW())
+        `);
+
+        await db.execute(sql`
+          UPDATE questionnaire_invitations SET status = 'completed', completed_at = NOW()
+          WHERE access_token = ${invitationToken}
+        `);
+
+        return res.status(201).json({ success: true, message: "Evaluación guardada" });
+      }
+
       console.log('Raw request body:', JSON.stringify(req.body, null, 2));
       
       // Check if employee has already completed this questionnaire type
@@ -1481,5 +1518,3 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   return httpServer;
 }
-// Fri Jul  3 12:09:39     2026
-// Fri Jul  3 12:14:34     2026
