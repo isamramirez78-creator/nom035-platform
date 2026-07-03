@@ -38,14 +38,19 @@ export default function StandardQuestionnaireForm({
   // Get the appropriate questionnaire based on type
   const getQuestionnaire = () => {
     switch (questionnaireType) {
+      // Tipos NOM-035 (nuevos)
+      case "guia1":
+      case "traumatic_events":
       case "microenterprise":
         return microenterpriseQuestionnaire;
+      case "guia2":
       case "guide_ii":
         return guideIIQuestionnaire;
+      case "guia3":
       case "guide_iii":
         return guideIIIQuestionnaire;
       default:
-        return getOfficialQuestionnaire(16); // Default to medium company size
+        return guideIIIQuestionnaire; // Default Guía III (más completa)
     }
   };
 

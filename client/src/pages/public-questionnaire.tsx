@@ -39,13 +39,9 @@ export default function PublicQuestionnaire() {
     enabled: !!token
   });
 
-  // Alias para compatibilidad con el resto del componente
-  const invitationDetails = invitation as any;
-
   useEffect(() => {
     if ((invitation as any)?.status === 'completed') {
-      // Redirect completed invitations to results page
-      // window.location.href = `/results/${token}`;
+      // Ya completado — se mostrará la pantalla de éxito
     }
   }, [invitation, token]);
 
@@ -58,6 +54,30 @@ export default function PublicQuestionnaire() {
             <p>Verificando invitación...</p>
           </CardContent>
         </Card>
+      </div>
+    );
+  }
+
+  if (invitationDetails?.status === 'completed') {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4" style={{ background: "linear-gradient(135deg, #F0FDF4 0%, #ECFCCB 100%)" }}>
+        <div style={{ background: "white", borderRadius: 20, padding: "2.5rem", maxWidth: 480, width: "100%", textAlign: "center", boxShadow: "0 8px 32px rgba(0,0,0,0.08)" }}>
+          <div style={{ width: 72, height: 72, background: "#ECFCCB", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 1.5rem" }}>
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#16A34A" strokeWidth="2.5">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
+          </div>
+          <h2 style={{ color: "#1E3A5F", fontSize: 22, fontWeight: 700, marginBottom: 8 }}>¡Evaluación completada!</h2>
+          <p style={{ color: "#64748B", fontSize: 14, lineHeight: 1.6, marginBottom: 20 }}>
+            Tu cuestionario NOM-035 ha sido enviado correctamente. Gracias por tu participación.
+            Los resultados serán revisados por el área de Recursos Humanos.
+          </p>
+          <div style={{ background: "#F8FAFC", borderRadius: 12, padding: "1rem", border: "0.5px solid #E2E8F0" }}>
+            <p style={{ color: "#94A3B8", fontSize: 12, margin: 0 }}>
+              Puedes cerrar esta ventana.
+            </p>
+          </div>
+        </div>
       </div>
     );
   }
@@ -277,21 +297,21 @@ export default function PublicQuestionnaire() {
       </div>
 
       <div className="max-w-4xl mx-auto p-4">
-        {invitationDetails.questionnaireType === "traumatic_events" ? (
+        {(invitationDetails.questionnaireType === "traumatic_events" || invitationDetails.questionnaireType === "guia1") ? (
           <TraumaticEventsForm
             employeeId={invitationDetails.employeeId}
             invitationToken={token}
             onComplete={() => {
-              window.location.reload(); // Refresh to show completion status
+              window.location.reload();
             }}
           />
         ) : (
           <StandardQuestionnaireForm
-            employeeId={invitationDetails.employeeId}
+            employeeId={invitationDetails.employee?.id || invitationDetails.employeeId}
             questionnaireType={invitationDetails.questionnaireType}
             invitationToken={token}
             onComplete={() => {
-              window.location.reload(); // Refresh to show completion status
+              window.location.reload();
             }}
           />
         )}
