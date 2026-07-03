@@ -1251,6 +1251,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Endpoint que usa el frontend público del cuestionario
+  app.get("/api/questionnaire-invitations/verify/:token", async (req, res) => {
+    try {
+      const { token } = req.params;
+      const result = await db.execute(sql`
+        SELECT qi.*, e.nombre, e.apellidos, e.apellido_paterno, e.apellido_materno,
+               e.puesto, e.area, e.email, e.rfc, e.curp, e.numero_empleado
+        FROM questionnaire_invitations qi
+        LEFT JOIN employees e ON e.id = qi.employee_id
+        WHERE qi.access_token = ${token}
+        LIMIT 1
+      `);
+
+      const inv = result.rows[0] as any;
+      if (!inv) return res.status(404).json({ message: "Enlace no válido" });
+      if (inv.status === 'completed') return res.status(400).json({ message: "Ya completado" });
+      if (inv.expires_at && new Date() > new Date(inv.expires_at)) {
+        return res.status(400).json({ message: "Enlace expirado" });
+      }
+
+      res.json({
+        id: inv.id,
+        accessToken: inv.access_token,
+        questionnaireType: inv.questionnaire_type,
+        status: inv.status,
+        expiresAt: inv.expires_at,
+        customMessage: inv.custom_message,
+        companyId: inv.company_id,
+        employee: {
+          id: inv.employee_id,
+          nombre: inv.nombre,
+          apellidos: inv.apellidos || `${inv.apellido_paterno || ''} ${inv.apellido_materno || ''}`.trim(),
+          puesto: inv.puesto,
+          area: inv.area,
+          email: inv.email,
+        },
+      });
+    } catch (error) {
+      console.error("Error verifying invitation:", error);
+      res.status(500).json({ message: "Error al verificar el enlace" });
+    }
+  });
+
   app.get("/api/questionnaire/:token", async (req, res) => {
     try {
       const { token } = req.params;
