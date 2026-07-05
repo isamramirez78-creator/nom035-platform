@@ -329,4 +329,4 @@ export default function TraumaticEventsForm({ employeeId, invitationToken, onCom
       </CardContent>
     </Card>
   );
-}
+} 
