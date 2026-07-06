@@ -31,6 +31,26 @@ const questionnaireTypeNames: { [key: string]: string } = {
 export default function PublicQuestionnaire() {
   const params = useParams();
   const token = params.token;
+
+  // Interceptar fetch para inyectar invitationToken en evaluaciones
+  useEffect(() => {
+    if (!token) return;
+    const orig = window.fetch.bind(window);
+    window.fetch = async function(input: any, init?: any) {
+      const url = typeof input === 'string' ? input : input?.url || '';
+      if (url.includes('/api/evaluations') && init?.method === 'POST' && init?.body) {
+        try {
+          const body = JSON.parse(init.body);
+          if (!body.invitationToken) {
+            body.invitationToken = token;
+            init = { ...init, body: JSON.stringify(body) };
+          }
+        } catch {}
+      }
+      return orig(input, init);
+    };
+    return () => { window.fetch = orig; };
+  }, [token]);
   const [hasStarted, setHasStarted] = useState(false);
 
   const { data: invitation, isLoading, error } = useQuery({
