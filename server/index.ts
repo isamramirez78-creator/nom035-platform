@@ -12,6 +12,11 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
+// Health check — ANTES de todo para que Railway lo detecte
+app.get("/api/health", (_req, res) => {
+  res.json({ status: "ok", timestamp: new Date().toISOString() });
+});
+
 // Servir plantillas NOM-035 como archivos estáticos
 app.use("/plantillas", express.static(path.resolve(__dirname, "..", "public", "plantillas")));
 
