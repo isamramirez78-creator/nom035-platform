@@ -240,7 +240,7 @@ export default function Reports() {
   const generatePDFReport = async (reportData: any) => {
     // Mapear templateId al tipo correcto del masterReportGenerator
     const typeMap: Record<string, string> = {
-      'executive-report':    'executive-dashboard',
+      'executive-report':    'executive-report',
       'executive-dashboard': 'executive-dashboard',
       'nom035-compliance':   'nom035-compliance',
       'risk-analysis':       'risk-analysis',
