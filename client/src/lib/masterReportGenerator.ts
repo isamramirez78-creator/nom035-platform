@@ -442,6 +442,132 @@ export async function generateComplianceReport(stats: any, employees: any[], eva
   doc.save(`Cumplimiento-NOM035-${new Date().toISOString().split('T')[0]}.pdf`);
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// REPORTE EJECUTIVO NOM-035 — Portada + análisis por área + conclusiones
+// ═══════════════════════════════════════════════════════════════════════════════
+export async function generateExecutiveNOM035Report(stats: any, employees: any[], evaluations: any[], company: any): Promise<void> {
+  const jsPDF = await import('jspdf');
+  const doc = new jsPDF.default({ unit:'mm', format:'a4' });
+  const pg = new Page(doc);
+  (pg as any).doc = doc;
+  const cName = company?.razonSocial||company?.razon_social||company?.nombre_empresa||"Empresa";
+  const completed = evaluations.filter(e=>e.completed);
+  const fecha = new Date().toLocaleDateString('es-MX',{day:'2-digit',month:'long',year:'numeric'});
+
+  // ── PORTADA ────────────────────────────────────────────────────────────────
+  doc.setFillColor(...NAVY_DARK); doc.rect(0,0,210,297,'F');
+  doc.setFillColor(...LIME); doc.rect(0,140,210,3,'F');
+  doc.setFillColor(...LIME); doc.roundedRect(85,30,40,40,5,5,'F');
+  doc.setTextColor(...NAVY_DARK); doc.setFontSize(26); doc.setFont('helvetica','bold');
+  doc.text('035',105,58,{align:'center'});
+  doc.setTextColor(...WHITE); doc.setFontSize(10); doc.setFont('helvetica','normal');
+  doc.text('SECRETARÍA DEL TRABAJO Y PREVISIÓN SOCIAL',105,85,{align:'center'});
+  doc.setFontSize(7); doc.setTextColor(...GRAY);
+  doc.text('NOM-035-STPS-2018',105,92,{align:'center'});
+  doc.setTextColor(...WHITE); doc.setFontSize(20); doc.setFont('helvetica','bold');
+  doc.text('REPORTE EJECUTIVO',105,115,{align:'center'});
+  doc.setFontSize(12); doc.setFont('helvetica','normal');
+  doc.text('Factores de Riesgo Psicosocial en el Trabajo',105,124,{align:'center'});
+  doc.setFillColor(21,43,71); doc.rect(20,155,170,60,'F');
+  doc.setDrawColor(...LIME); doc.setLineWidth(0.8); doc.rect(20,155,170,60,'S');
+  doc.setTextColor(...LIME); doc.setFontSize(8); doc.setFont('helvetica','bold');
+  doc.text('ORGANIZACIÓN',105,165,{align:'center'});
+  doc.setTextColor(...WHITE); doc.setFontSize(13); doc.setFont('helvetica','bold');
+  doc.text(cName,105,175,{align:'center'});
+  doc.setFontSize(8); doc.setFont('helvetica','normal'); doc.setTextColor(...GRAY);
+  doc.text(`RFC: ${company?.rfc||'—'}`,105,183,{align:'center'});
+  doc.text(`Período: ${new Date().getFullYear()}  |  Evaluados: ${completed.length}  |  Fecha: ${fecha}`,105,191,{align:'center'});
+  doc.setTextColor(...GRAY); doc.setFontSize(7);
+  doc.text('Documento confidencial — Uso interno',105,280,{align:'center'});
+
+  // ── PÁGINA 2 ───────────────────────────────────────────────────────────────
+  doc.addPage();
+  pageHeader(doc,'REPORTE EJECUTIVO  NOM-035-STPS-2018','Análisis comparativo por área y conclusiones ejecutivas',cName);
+
+  const cov = employees.length>0?Math.round((completed.length/employees.length)*100):0;
+  const highRisk = completed.filter(e=>e.riskLevel==='alto'||e.riskLevel==='muy-alto').length;
+  const hrPct = completed.length>0?Math.round((highRisk/completed.length)*100):0;
+
+  pg.sectionHeader('1. RESUMEN EJECUTIVO');
+  pg.kv('Empresa',cName); pg.kv('RFC',company?.rfc||'—');
+  pg.kv('Norma aplicable','NOM-035-STPS-2018');
+  pg.kv('Total empleados',String(employees.length));
+  pg.kv('Evaluaciones completadas',String(completed.length));
+  pg.kv('Cobertura',`${cov}%`,cov>=80?[34,197,94]:[239,68,68]);
+  pg.kv('En riesgo alto/muy alto',`${highRisk} (${hrPct}%)`,highRisk>0?[239,68,68]:[34,197,94]);
+  pg.gap(4);
+
+  pg.sectionHeader('2. ANÁLISIS COMPARATIVO POR ÁREA');
+  const areas: Record<string,{total:number,alto:number,medio:number,bajo:number}> = {};
+  completed.forEach((ev:any)=>{
+    const emp=employees.find((e:any)=>e.id===(ev.employeeId||ev.employee_id));
+    const area=emp?.area||'Sin área';
+    if(!areas[area]) areas[area]={total:0,alto:0,medio:0,bajo:0};
+    areas[area].total++;
+    if(ev.riskLevel==='alto'||ev.riskLevel==='muy-alto') areas[area].alto++;
+    else if(ev.riskLevel==='medio') areas[area].medio++;
+    else areas[area].bajo++;
+  });
+
+  if(Object.keys(areas).length===0){
+    pg.line('Sin datos suficientes para análisis por área.',3,GRAY,8.5);
+  } else {
+    tableHeader(pg,['Área','Total','Riesgo Alto','Medio','Sin Riesgo','Estado'],[44,18,26,18,22,56],pg.x);
+    Object.entries(areas).forEach(([area,d],i)=>{
+      const estado=d.alto>0?'Requiere intervención':d.medio>d.bajo?'Monitorear':'Favorable';
+      const ec=d.alto>0?[239,68,68]:d.medio>d.bajo?[234,179,8]:[34,197,94];
+      tableRow(pg,[{text:area},{text:String(d.total)},{text:String(d.alto),color:d.alto>0?[239,68,68]:[30,58,95]},{text:String(d.medio),color:d.medio>0?[234,179,8]:[30,58,95]},{text:String(d.bajo)},{text:estado,color:ec}],[44,18,26,18,22,56],pg.x,i%2===0);
+    });
+  }
+  pg.gap(5);
+
+  pg.sectionHeader('3. DISTRIBUCIÓN GLOBAL DE RIESGOS');
+  const dist=completed.reduce((acc:any,e:any)=>{const k=e.riskLevel||'sin-riesgo';acc[k]=(acc[k]||0)+1;return acc;},{});
+  const tot=Object.values(dist).reduce((a:any,b:any)=>a+b,0) as number;
+  ['nulo','muy-bajo','bajo','medio','alto','muy-alto'].forEach(level=>{
+    const count=(dist[level]||0) as number; if(!count) return;
+    const pct=Math.round((count/tot)*100); const color=RISK_C[level];
+    pg.ensure(10);
+    pg.txt(RISK_L[level],pg.x+3,pg.y,color,8.5,true);
+    pg.txt(`${count} trabajadores (${pct}%)`,pg.x+28,pg.y,[30,58,95],8);
+    const bx=pg.x+80,bw=pg.w-83;
+    pg.fillRect(bx,pg.y-5,bw,6,[230,235,240]);
+    pg.fillRect(bx,pg.y-5,Math.round(bw*pct/100),6,color);
+    pg.y+=8;
+  });
+  pg.gap(5);
+
+  if(pg.y>210) pg.newPage();
+  pg.sectionHeader('4. CONCLUSIONES Y RECOMENDACIONES');
+  const conclusiones=[];
+  if(cov<80) conclusiones.push(`La cobertura es del ${cov}%, por debajo del mínimo recomendado (80%). Reforzar mecanismos de participación.`);
+  else conclusiones.push(`La cobertura del ${cov}% cumple con los estándares de la NOM-035-STPS-2018.`);
+  if(highRisk>0) conclusiones.push(`${highRisk} trabajador${highRisk>1?'es':''} en riesgo alto/muy alto requieren atención prioritaria e intervención conforme al Numeral 5.5.`);
+  if(hrPct>25) conclusiones.push(`El ${hrPct}% de trabajadores en riesgo alto requiere un Programa de Intervención organizacional (Numeral 8.2).`);
+  conclusiones.push('Implementar las acciones del Plan de Intervención y dar seguimiento cada 30 días.');
+  conclusiones.push(`La próxima evaluación deberá realizarse antes de ${new Date().getFullYear()+2} (Numeral 7.9).`);
+  conclusiones.forEach((c,i)=>{
+    pg.ensure(12);
+    pg.fillRect(pg.x,pg.y-2,pg.w,10,i%2===0?LIGHT:[255,255,255]);
+    pg.fillRect(pg.x,pg.y-2,3,10,LIME);
+    const lines=doc.splitTextToSize(`${i+1}. ${c}`,174);
+    doc.setTextColor(...[30,58,95] as [number,number,number]);
+    doc.setFontSize(8); doc.setFont('helvetica','normal');
+    doc.text(lines,pg.x+7,pg.y+4);
+    pg.y+=lines.length*5.5+4;
+  });
+  pg.gap(4);
+  pg.ensure(20);
+  pg.fillRect(pg.x,pg.y,pg.w,18,NAVY_DARK);
+  pg.txt('Responsable NOM-035: _______________________',pg.x+5,pg.y+7,WHITE,8);
+  pg.txt('Firma: ___________________',pg.x+5,pg.y+14,WHITE,8);
+  pg.txt(`Fecha: ${fecha}`,pg.x+pg.w-50,pg.y+7,WHITE,8);
+  pg.y+=22;
+
+  addFooters(doc,cName);
+  doc.save(`Reporte-Ejecutivo-NOM035-${new Date().toISOString().split('T')[0]}.pdf`);
+}
+
 // ─── Punto de entrada desde reports.tsx ──────────────────────────────────────
 export async function generateReport(type: string, params?: any): Promise<{success:boolean;error?:string}> {
   try {
@@ -459,8 +585,9 @@ export async function generateReport(type: string, params?: any): Promise<{succe
 
     switch(type){
       case 'executive-dashboard':
-      case 'executive-report':
         await generateExecutiveReport(stats,employees,evaluations,company); break;
+      case 'executive-report':
+        await generateExecutiveNOM035Report(stats,employees,evaluations,company); break;
       case 'risk-analysis':
         await generateAreaReport('todas',employees,evaluations,company); break;
       case 'nom035-compliance':
