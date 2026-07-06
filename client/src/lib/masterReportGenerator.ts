@@ -462,7 +462,7 @@ export async function generateReport(type: string, params?: any): Promise<{succe
       case 'executive-report':
         await generateExecutiveReport(stats,employees,evaluations,company); break;
       case 'risk-analysis':
-        await generateExecutiveReport(stats,employees,evaluations,company); break;
+        await generateAreaReport('todas',employees,evaluations,company); break;
       case 'nom035-compliance':
         await generateComplianceReport(stats,employees,evaluations,company); break;
       case 'area-report':

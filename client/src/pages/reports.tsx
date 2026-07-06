@@ -226,17 +226,12 @@ export default function Reports() {
         canalizationCount: stats?.canalizationCount || 3
       };
       
-      await generateProfessionalReport(reportData);
-      
-      toast({
-        title: "Reporte ejecutivo generado",
-        description: "El reporte profesional se ha descargado correctamente",
-      });
+      await generatePDFReport(reportData);
     } catch (error) {
-      console.error("Error generating professional report:", error);
+      console.error("Error generating report:", error);
       toast({
         title: "Error",
-        description: "No se pudo generar el reporte ejecutivo",
+        description: "No se pudo generar el reporte",
         variant: "destructive",
       });
     }
@@ -248,7 +243,8 @@ export default function Reports() {
       'executive-report':    'executive-dashboard',
       'executive-dashboard': 'executive-dashboard',
       'nom035-compliance':   'nom035-compliance',
-      'risk-analysis':       'executive-dashboard',
+      'risk-analysis':       'risk-analysis',
+      'intervention-plan':   'nom035-compliance',
       'area-report':         'area-report',
     };
     const reportType = typeMap[reportData.templateId] || 'executive-dashboard';
