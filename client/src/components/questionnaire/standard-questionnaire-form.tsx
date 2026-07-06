@@ -14,7 +14,7 @@ import {
   getOfficialQuestionnaire,
   officialDomains,
 } from "@/data/nom035-official-questions";
-import { calculateOfficialNOM035Evaluation } from "@/utils/nom035-official-calculator";
+import { calculateOfficialNOM035Evaluation } from "@/utils/nom035-official-calculator"; // v2
 import { CheckCircle, AlertCircle } from "lucide-react";
 
 interface StandardQuestionnaireFormProps {
@@ -117,9 +117,9 @@ export default function StandardQuestionnaireForm({
       }));
 
       const evaluation = calculateOfficialNOM035Evaluation(
+        employeeId,
         answersList,
-        questionnaireType,
-        50 // Default company size - should be determined by actual company
+        50
       );
 
       const evaluationData = {
