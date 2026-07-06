@@ -548,7 +548,7 @@ export async function generateExecutiveNOM035Report(stats: any, employees: any[]
   conclusiones.push(`La próxima evaluación deberá realizarse antes de ${new Date().getFullYear()+2} (Numeral 7.9).`);
   conclusiones.forEach((c,i)=>{
     pg.ensure(12);
-    pg.fillRect(pg.x,pg.y-2,pg.w,10,i%2===0?LIGHT_BG:[255,255,255]);
+    pg.fillRect(pg.x,pg.y-2,pg.w,10,i%2===0?LIGHT:[255,255,255]);
     pg.fillRect(pg.x,pg.y-2,3,10,LIME);
     const lines=doc.splitTextToSize(`${i+1}. ${c}`,174);
     doc.setTextColor(...[30,58,95] as [number,number,number]);
@@ -569,6 +569,69 @@ export async function generateExecutiveNOM035Report(stats: any, employees: any[]
 }
 
 // ─── Punto de entrada desde reports.tsx ──────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+// REPORTE — PLAN DE INTERVENCIÓN NOM-035
+// ═══════════════════════════════════════════════════════════════════════════════
+export async function generateInterventionPlan(stats: any, employees: any[], evaluations: any[], company: any): Promise<void> {
+  const jsPDF = await import('jspdf');
+  const doc = new jsPDF.default({ unit:'mm', format:'a4' });
+  const pg = new Page(doc);
+  (pg as any).doc = doc;
+  const cName = company?.razonSocial||company?.razon_social||company?.nombre_empresa||"Empresa";
+  const completed = evaluations.filter(e=>e.completed);
+  const highRisk = completed.filter(e=>e.riskLevel==='alto'||e.riskLevel==='muy-alto');
+
+  pageHeader(doc,'PLAN DE INTERVENCIÓN  NOM-035-STPS-2018','Acciones correctivas y preventivas para factores de riesgo psicosocial',cName);
+
+  pg.sectionHeader('RESUMEN');
+  pg.kv('Empresa',cName); pg.kv('Período',String(new Date().getFullYear()));
+  pg.kv('Total evaluados',String(completed.length));
+  pg.kv('En riesgo alto/muy alto',String(highRisk.length));
+  pg.kv('Fecha del plan',new Date().toLocaleDateString('es-MX',{day:'2-digit',month:'long',year:'numeric'}));
+  pg.gap(4);
+
+  pg.sectionHeader('TRABAJADORES PRIORITARIOS',[239,68,68]);
+  if(highRisk.length===0){
+    pg.line('No hay trabajadores en riesgo alto o muy alto.',3,GRAY);
+  } else {
+    tableHeader(pg,['Trabajador','Área','Riesgo','Acción','Plazo'],[50,32,25,55,22],pg.x);
+    highRisk.forEach((ev:any,i:number)=>{
+      const emp=employees.find((e:any)=>e.id===(ev.employeeId||ev.employee_id));
+      const name=emp?`${emp.nombre||''} ${emp.apellidoPaterno||emp.apellidos||''}`.trim():'—';
+      const color=RISK_C[ev.riskLevel]||[239,68,68];
+      tableRow(pg,[{text:name},{text:emp?.area||'—'},{text:RISK_L[ev.riskLevel]||ev.riskLevel,color},{text:ev.riskLevel==='muy-alto'?'Canalización inmediata':'Intervención urgente',color},{text:ev.riskLevel==='muy-alto'?'Inmediato':'30 días'}],[50,32,25,55,22],pg.x,i%2===0);
+    });
+    pg.gap(4);
+  }
+
+  pg.sectionHeader('MEDIDAS POR DOMINIO');
+  const ivs=[
+    {d:'Condiciones del ambiente',a:'Diagnóstico de condiciones físicas del centro de trabajo',r:'RRHH / Seguridad',p:'60 días',pr:'Alta'},
+    {d:'Carga de trabajo',a:'Revisar distribución de actividades y cargas por área',r:'Jefes de área',p:'30 días',pr:'Alta'},
+    {d:'Liderazgo',a:'Capacitar a mandos medios en gestión y comunicación',r:'RRHH',p:'90 días',pr:'Media'},
+    {d:'Relaciones en el trabajo',a:'Implementar programa de integración y resolución de conflictos',r:'RRHH',p:'60 días',pr:'Media'},
+    {d:'Violencia laboral',a:'Difundir protocolo de prevención y canal de denuncias',r:'Dirección / RRHH',p:'15 días',pr:'Alta'},
+    {d:'Entorno organizacional',a:'Aplicar plan de mejora del clima organizacional',r:'RRHH',p:'90 días',pr:'Media'},
+  ];
+  tableHeader(pg,['Dominio','Acción','Responsable','Plazo','Prioridad'],[40,70,30,20,24],pg.x);
+  ivs.forEach((iv,i)=>{
+    const c=iv.pr==='Alta'?[239,68,68]:[249,115,22];
+    tableRow(pg,[{text:iv.d},{text:iv.a},{text:iv.r},{text:iv.p},{text:iv.pr,color:c}],[40,70,30,20,24],pg.x,i%2===0);
+  });
+  pg.gap(4);
+
+  pg.sectionHeader('SEGUIMIENTO');
+  ['Evaluar avance cada 30 días.','Realizar evaluación de seguimiento a los 6 meses.','Actualizar el Programa de Intervención conforme a resultados.','Documentar todas las acciones implementadas.','Aplicar nueva evaluación NOM-035 en máximo 2 años (Numeral 7.9).'].forEach((c,i)=>{
+    pg.ensure(10); pg.fillRect(pg.x,pg.y-2,pg.w,8,i%2===0?LIGHT_BG:[255,255,255]);
+    pg.fillRect(pg.x,pg.y-2,3,8,LIME);
+    pg.txt(`${i+1}. ${c}`,pg.x+6,pg.y+3,[30,58,95],7.5); pg.y+=9;
+  });
+
+  addFooters(doc,cName);
+  doc.save(`Plan-Intervencion-NOM035-${new Date().toISOString().split('T')[0]}.pdf`);
+}
+
+
 export async function generateReport(type: string, params?: any): Promise<{success:boolean;error?:string}> {
   try {
     const token = localStorage.getItem('company_token');
@@ -648,4 +711,3 @@ export const generateExecutivePresentation = async () => {
     return { success:true, fileName };
   } catch(e:any){ return { success:false, error:e?.message }; }
 };
-// updated Sun Jul  5 23:15:40     2026
