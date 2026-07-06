@@ -207,17 +207,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/evaluations", async (req, res) => {
     try {
-      // Si viene invitationToken, redirigir al endpoint público
-      if (req.body.invitationToken) {
-        const { employeeId: bodyEmpId, questionnaireType, answers, results, invitationToken } = req.body;
+      // Detectar si es una evaluación pública (sin token de empresa pero con datos de cuestionario)
+      const hasCompanyToken = req.headers.authorization?.startsWith('Bearer ');
+      const { invitationToken, questionnaireType: qt, answers, results } = req.body;
+      
+      if (!hasCompanyToken || invitationToken) {
+        // Buscar la invitación pendiente más reciente para este tipo de cuestionario
+        let invitation: any = null;
+        
+        if (invitationToken) {
+          const invResult = await db.execute(sql`
+            SELECT * FROM questionnaire_invitations 
+            WHERE access_token = ${invitationToken}
+            LIMIT 1
+          `);
+          invitation = invResult.rows[0];
+        } else {
+          // Sin token — buscar la invitación pendiente más reciente
+          const invResult = await db.execute(sql`
+            SELECT * FROM questionnaire_invitations 
+            WHERE status = 'pending'
+            ORDER BY created_at DESC
+            LIMIT 1
+          `);
+          invitation = invResult.rows[0];
+        }
 
-        const invResult = await db.execute(sql`
-          SELECT * FROM questionnaire_invitations 
-          WHERE access_token = ${invitationToken} AND status = 'pending'
-          LIMIT 1
-        `);
-        const invitation = invResult.rows[0] as any;
-        if (!invitation) return res.status(404).json({ message: "Invitación no válida" });
+        if (!invitation) {
+          return res.status(404).json({ message: "No se encontró una invitación activa" });
+        }
 
         const employeeId = invitation.employee_id;
         const companyId = invitation.company_id;
@@ -225,20 +243,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const riskLevel = results?.riskLevel || results?.risk_level || 'medio';
         const domainScores = JSON.stringify(results?.domainScores || results?.domain_scores || []);
         const answersJson = JSON.stringify(Array.isArray(answers) ? answers : []);
+        const questionnaireType = qt || invitation.questionnaire_type || 'guia3';
 
         await db.execute(sql`
           INSERT INTO evaluations 
             (employee_id, company_id, questionnaire_type, answers, overall_score, 
              risk_level, "domainScores", completed, completed_at)
           VALUES 
-            (${employeeId}::integer, ${companyId}::integer, ${questionnaireType || 'guia3'},
+            (${employeeId}::integer, ${companyId}::integer, ${questionnaireType},
              ${answersJson}::jsonb, ${overallScore}::integer, ${riskLevel},
              ${domainScores}::jsonb, true, NOW())
         `);
 
         await db.execute(sql`
           UPDATE questionnaire_invitations SET status = 'completed', completed_at = NOW()
-          WHERE access_token = ${invitationToken}
+          WHERE id = ${invitation.id}
         `);
 
         return res.status(201).json({ success: true, message: "Evaluación guardada" });
