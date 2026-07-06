@@ -127,24 +127,24 @@ export default function DocumentosNormativos() {
   });
 
   // ── Descargar plantilla ──────────────────────────────────────────────────────
-  const descargarPlantilla = async (plantillaId: string) => {
-    try {
-      const res = await fetch(`/api/plantillas-nom035/${plantillaId}`, { headers: authHeaders() });
-      if (!res.ok) throw new Error("No disponible");
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${plantillaId}.docx`;
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch {
-      toast({
-        title: "Plantilla no disponible aún",
-        description: "Próximamente disponible. Por ahora puedes subir tu propio documento.",
-        variant: "destructive",
-      });
+  const descargarPlantilla = (plantillaId: string) => {
+    const fileMap: Record<string, string> = {
+      "politica-prevencion":    "plantilla-politica-prevencion.docx",
+      "programa-intervencion":  "plantilla-programa-intervencion.docx",
+      "acta-difusion":          "plantilla-acta-difusion.docx",
+      "constancia-capacitacion":"plantilla-constancia-capacitacion.docx",
+      "acta-comision":          "plantilla-acta-comision.docx",
+      "medidas-control":        "plantilla-medidas-control.docx",
+    };
+    const fileName = fileMap[plantillaId];
+    if (!fileName) {
+      toast({ title: "Plantilla no disponible", variant: "destructive" });
+      return;
     }
+    const a = document.createElement("a");
+    a.href = `/plantillas/${fileName}`;
+    a.download = fileName;
+    a.click();
   };
 
   // ── Helper: doc subido para un tipo ─────────────────────────────────────────
