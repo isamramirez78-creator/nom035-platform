@@ -648,3 +648,4 @@ export const generateExecutivePresentation = async () => {
     return { success:true, fileName };
   } catch(e:any){ return { success:false, error:e?.message }; }
 };
+// updated Sun Jul  5 23:15:40     2026
