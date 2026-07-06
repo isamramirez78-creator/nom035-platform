@@ -1322,8 +1322,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const inv = result.rows[0] as any;
       if (!inv) return res.status(404).json({ message: "Enlace no válido" });
-      if (inv.status === 'completed') return res.status(400).json({ message: "Ya completado" });
-      if (inv.expires_at && new Date() > new Date(inv.expires_at)) {
+      // No rechazar si ya fue completado — mostrar pantalla de éxito
+      if (inv.expires_at && inv.status !== 'completed' && new Date() > new Date(inv.expires_at)) {
         return res.status(400).json({ message: "Enlace expirado" });
       }
 
