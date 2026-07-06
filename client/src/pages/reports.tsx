@@ -244,7 +244,7 @@ export default function Reports() {
       'executive-dashboard': 'executive-dashboard',
       'nom035-compliance':   'nom035-compliance',
       'risk-analysis':       'risk-analysis',
-      'intervention-plan':   'nom035-compliance',
+      'intervention-plan':   'intervention-plan',
       'area-report':         'area-report',
     };
     const reportType = typeMap[reportData.templateId] || 'executive-dashboard';
