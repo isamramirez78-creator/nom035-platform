@@ -479,6 +479,122 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // CSV import endpoint
+  // Endpoint para importar empleados desde Excel o CSV
+  app.post("/api/employees/import", authenticateCompany, async (req: any, res: any) => {
+    try {
+      if (!req.files || !req.files.file) {
+        return res.status(400).json({ message: "No se recibió ningún archivo" });
+      }
+
+      const file = req.files.file as any;
+      const fileName = file.name || "";
+      const companyId = req.company?.id;
+      const results: any[] = [];
+      const errors: any[] = [];
+
+      if (fileName.endsWith(".csv")) {
+        // Procesar CSV
+        const content2 = file.data.toString("utf-8").replace(/^﻿/, "");
+        const lines = content2.split(/?
+/).filter((l: string) => l.trim());
+        const headers = lines[0].split(",").map((h: string) => h.trim().toLowerCase());
+
+        for (let i = 1; i < lines.length; i++) {
+          const vals = lines[i].split(",").map((v: string) => v.trim());
+          if (vals.every((v: string) => !v)) continue;
+          const row: any = {};
+          headers.forEach((h2: string, idx: number) => { row[h2] = vals[idx] || ""; });
+
+          try {
+            const apellidos = (row.apellidos || (row.apellido_paterno + " " + (row.apellido_materno || "")).trim()).trim();
+            if (!row.nombre || !row.puesto || !row.area || !row.fecha_ingreso) {
+              errors.push({ row: i + 1, error: "Faltan campos obligatorios" });
+              continue;
+            }
+            const { db: db2 } = await import("./db.js");
+            const { sql: sql2 } = await import("drizzle-orm");
+            await db2.execute(sql2`
+              INSERT INTO employees (company_id, nombre, apellidos, apellido_paterno, apellido_materno,
+                numero_empleado, puesto, area, fecha_ingreso, email, rfc, curp, genero, generacion, risk_status)
+              VALUES (${companyId}, ${row.nombre}, ${apellidos},
+                ${row.apellido_paterno || null}, ${row.apellido_materno || null},
+                ${row.numero_empleado || null}, ${row.puesto}, ${row.area},
+                ${row.fecha_ingreso}, ${row.email || null},
+                ${row.rfc ? row.rfc.toUpperCase() : null},
+                ${row.curp ? row.curp.toUpperCase() : null},
+                ${row.genero || null}, ${row.generacion || null}, 'sin-evaluar')
+            `);
+            results.push({ success: true });
+          } catch (e: any) {
+            errors.push({ row: i + 1, error: e.message });
+          }
+        }
+      } else {
+        // Procesar Excel con xlsx
+        const XLSX = await import("xlsx");
+        const wb = XLSX.read(file.data, { type: "buffer" });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const rows: any[] = XLSX.utils.sheet_to_json(ws, { defval: "" });
+
+        // Saltar filas de instrucciones/headers (buscar primera fila con datos reales)
+        const dataRows = rows.filter((r: any) => {
+          const vals = Object.values(r).map((v: any) => String(v).trim());
+          return vals.some(v => v && v !== "Obligatorio" && v !== "Opcional" &&
+            !v.includes("INSTRUCCIONES") && !v.includes("formato") && v.length > 1);
+        });
+
+        for (let i = 0; i < dataRows.length; i++) {
+          const row: any = {};
+          // Normalizar claves
+          Object.entries(dataRows[i]).forEach(([k, v]) => {
+            const key = String(k).toLowerCase()
+              .replace(/[()\/]/g, "").replace(/\s+/g, "_")
+              .replace("nombres", "nombre").replace("apellido_paterno", "apellido_paterno")
+              .replace("apellido_materno", "apellido_materno")
+              .replace("número_empleado", "numero_empleado").replace("número", "numero")
+              .replace("puesto__cargo", "puesto").replace("área__departamento", "area")
+              .replace("fecha_ingreso", "fecha_ingreso").replace("correo_electrónico", "email")
+              .replace("género", "genero").replace("generación", "generacion");
+            row[key] = String(v).trim();
+          });
+
+          if (!row.nombre || !row.puesto || !row.area) continue;
+
+          try {
+            const apellidoPat = row.apellido_paterno || "";
+            const apellidoMat = row.apellido_materno || "";
+            const apellidos = (apellidoPat + " " + apellidoMat).trim();
+            const { db: db3 } = await import("./db.js");
+            const { sql: sql3 } = await import("drizzle-orm");
+            await db3.execute(sql3`
+              INSERT INTO employees (company_id, nombre, apellidos, apellido_paterno, apellido_materno,
+                numero_empleado, puesto, area, fecha_ingreso, email, rfc, curp, genero, generacion, risk_status)
+              VALUES (${companyId}, ${row.nombre}, ${apellidos || null},
+                ${apellidoPat || null}, ${apellidoMat || null},
+                ${row.numero_empleado || null}, ${row.puesto}, ${row.area},
+                ${row.fecha_ingreso || null}, ${row.email || null},
+                ${row.rfc ? row.rfc.toUpperCase() : null},
+                ${row.curp ? row.curp.toUpperCase() : null},
+                ${row.genero || null}, ${row.generacion || null}, 'sin-evaluar')
+            `);
+            results.push({ success: true });
+          } catch (e: any) {
+            errors.push({ row: i + 1, error: e.message });
+          }
+        }
+      }
+
+      res.json({
+        successful: results.length,
+        errors,
+        message: results.length > 0 ? "Importación completada" : "No se encontraron empleados para importar"
+      });
+    } catch (e: any) {
+      console.error("Error importing employees:", e);
+      res.status(500).json({ message: e.message || "Error al importar empleados" });
+    }
+  });
+
   app.post("/api/employees/import-csv", async (req, res) => {
     try {
       const { employees: employeeData } = req.body;
@@ -786,39 +902,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Employee template and import routes (public for download)
   app.get("/api/employees/template/:format", async (req, res) => {
     try {
-      const format = req.params.format as "excel" | "csv";
-
-      if (format === "excel" || format === "xlsx") {
-        // Servir archivo estático desde public/plantillas/
-        const path = await import("path");
-        const fs = await import("fs");
-        const { fileURLToPath } = await import("url");
-        const __dirname2 = path.dirname(fileURLToPath(import.meta.url));
-        const filePath = path.resolve(__dirname2, "..", "public", "plantillas", "plantilla-empleados.xlsx");
+      const format = req.params.format as 'excel' | 'csv';
+      
+      if (format === 'csv') {
+        // Generate CSV template with detailed examples
+        const csvHeaders = [
+          'nombre',
+          'apellidos', 
+          'email',
+          'puesto',
+          'area',
+          'fechaIngreso'
+        ];
         
-        if (fs.existsSync(filePath)) {
-          res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-          res.setHeader("Content-Disposition", "attachment; filename=plantilla-empleados.xlsx");
-          return res.sendFile(filePath);
-        }
+        const csvContent = [
+          csvHeaders.join(','),
+          '# PLANTILLA DE IMPORTACIÓN DE EMPLEADOS',
+          '# Completa los datos siguiendo los ejemplos. No elimines esta línea de encabezados.',
+          '# ÁREAS VÁLIDAS: administracion, operaciones, ventas, recursos-humanos, finanzas, tecnologia, produccion',
+          '# FORMATO DE FECHA: DD/MM/AAAA (ejemplo: 15/03/2024)',
+          '# EJEMPLOS:',
+          'Juan,Pérez García,juan.perez@empresa.com,Analista de Sistemas,tecnologia,15/01/2024',
+          'María,López Rodríguez,maria.lopez@empresa.com,Gerente de Operaciones,operaciones,01/03/2024',
+          'Carlos,Martínez Sánchez,carlos.martinez@empresa.com,Contador Senior,administracion,10/02/2024',
+          'Ana,Fernández Torres,ana.fernandez@empresa.com,Ejecutiva de Ventas,ventas,22/04/2024',
+          'Roberto,Gómez Herrera,roberto.gomez@empresa.com,Supervisor de Producción,produccion,05/05/2024',
+          '# Elimina estas líneas de ejemplo y agrega tus empleados debajo'
+        ].join('\n');
+        
+        res.setHeader('Content-Type', 'text/csv');
+        res.setHeader('Content-Disposition', 'attachment; filename=plantilla-empleados.csv');
+        res.send(csvContent);
+      } else if (format === 'excel') {
+        // For Excel, we'll create a simple CSV that can be opened in Excel
+        // In a real implementation, you'd use a library like 'exceljs'
+        const csvHeaders = [
+          'nombre',
+          'apellidos',
+          'email', 
+          'puesto',
+          'area',
+          'fechaIngreso'
+        ];
+        
+        const csvContent = [
+          csvHeaders.join(','),
+          'Juan,Pérez García,juan.perez@empresa.com,Analista,administracion,01/01/2024',
+          'María,López Rodríguez,maria.lopez@empresa.com,Gerente,operaciones,15/03/2024'
+        ].join('\n');
+        
+        res.setHeader('Content-Type', 'application/vnd.ms-excel');
+        res.setHeader('Content-Disposition', 'attachment; filename=plantilla-empleados.xlsx');
+        res.send(csvContent);
+      } else {
+        res.status(400).json({ message: "Format not supported" });
       }
-
-      // CSV template
-      const csvContent = [
-        "nombre,apellido_paterno,apellido_materno,numero_empleado,puesto,area,fecha_ingreso,email,rfc,curp,genero,generacion",
-        "Juan Carlos,García,Martínez,EMP-001,Analista de Sistemas,Tecnología,15/01/2024,juan.garcia@empresa.com,GAMJ900115XX1,GAMJ900115HDFRTNA5,Masculino,Millennials",
-        "María Elena,López,Rodríguez,EMP-002,Gerente de Operaciones,Operaciones,01/03/2023,maria.lopez@empresa.com,,,Femenino,Generación X",
-      ].join("\n");
-
-      res.setHeader("Content-Type", "text/csv; charset=utf-8");
-      res.setHeader("Content-Disposition", "attachment; filename=plantilla-empleados.csv");
-      res.send("\uFEFF" + csvContent);
     } catch (error) {
-      console.error("Error downloading template:", error);
-      res.status(500).json({ message: "Error al descargar plantilla" });
+      console.error('Template generation error:', error);
+      res.status(500).json({ message: "Error generating template" });
     }
   });
-
 
   app.post("/api/employees/import", authenticateCompany, async (req: any, res) => {
     try {
