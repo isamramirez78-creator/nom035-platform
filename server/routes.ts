@@ -27,7 +27,6 @@ const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SEC
 }) : null;
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  app.get("/api/health", (_req, res) => { res.json({ status: "ok" }); });
   
   // Stripe subscription routes
   app.post("/api/create-subscription", async (req, res) => {

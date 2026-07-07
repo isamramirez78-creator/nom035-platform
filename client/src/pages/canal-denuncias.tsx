@@ -93,6 +93,62 @@ export default function CanalDenuncias() {
   return (
     <div className="space-y-5">
 
+      {/* Links de acceso para empleados */}
+      <div className="section-card">
+        <div className="section-header"><div className="lime-dot" /><h3>Acceso para empleados</h3></div>
+        <div className="p-5 space-y-4">
+          <div className="p-4 rounded-xl" style={{ background:"#EFF6FF", border:"1px solid #BFDBFE" }}>
+            <p className="text-sm font-semibold mb-1" style={{ color:"#1E40AF" }}>🔗 Link directo para empleados</p>
+            <p className="text-xs mb-3" style={{ color:"#3B82F6" }}>
+              Comparte este link con tus empleados para que puedan registrar denuncias de forma anónima desde cualquier dispositivo.
+            </p>
+            <div className="flex items-center gap-2">
+              <code className="flex-1 text-xs p-2 rounded-lg truncate" style={{ background:"#F8FAFC", border:"0.5px solid #E2E8F0", color:"#1E3A5F" }}>
+                {`${window.location.origin}/denuncia/${window.location.hostname.split('.')[0]}`}
+              </code>
+              <button
+                onClick={() => {
+                  const link = `${window.location.origin}/denuncia/empresa`;
+                  navigator.clipboard.writeText(link);
+                  toast({ title: "Link copiado al portapapeles" });
+                }}
+                className="px-3 py-2 rounded-lg text-xs font-medium flex-shrink-0"
+                style={{ background:"#1E3A5F", color:"white" }}>
+                Copiar link
+              </button>
+            </div>
+          </div>
+
+          <div className="p-4 rounded-xl" style={{ background:"#F0FDF4", border:"1px solid #BBF7D0" }}>
+            <p className="text-sm font-semibold mb-1" style={{ color:"#15803D" }}>📱 Código QR para cartelera</p>
+            <p className="text-xs mb-3" style={{ color:"#16A34A" }}>
+              Imprime y coloca este QR en áreas visibles de tu empresa. Los empleados lo escanean con su celular para acceder al canal de denuncias.
+            </p>
+            <button
+              onClick={() => {
+                const link = `${window.location.origin}/denuncia/empresa`;
+                const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(link)}`;
+                const win = window.open('', '_blank');
+                if (win) {
+                  win.document.write(`
+                    <html><body style="text-align:center;font-family:Inter,sans-serif;padding:2rem">
+                      <h2 style="color:#1E3A5F">Canal de Denuncias NOM-035</h2>
+                      <p style="color:#64748B">Escanea para registrar una denuncia de forma confidencial</p>
+                      <img src="${qrUrl}" style="margin:1rem auto;display:block;border:8px solid #1E3A5F;border-radius:12px"/>
+                      <p style="color:#94A3B8;font-size:12px">${link}</p>
+                      <button onclick="window.print()" style="background:#1E3A5F;color:white;border:none;padding:12px 24px;border-radius:8px;cursor:pointer;font-size:14px;margin-top:1rem">🖨️ Imprimir QR</button>
+                    </html></body>
+                  `);
+                }
+              }}
+              className="px-4 py-2 rounded-lg text-sm font-medium"
+              style={{ background:"#15803D", color:"white" }}>
+              📱 Generar e imprimir QR
+            </button>
+          </div>
+        </div>
+      </div>
+
       {/* Banner informativo */}
       <div className="p-4 rounded-xl" style={{ background: "#F0FDF4", border: "1px solid #BBF7D0" }}>
         <div className="flex items-start gap-3">

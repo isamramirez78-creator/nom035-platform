@@ -20,6 +20,7 @@ const Onboarding          = lazy(() => import("@/pages/onboarding"));
 const EmployeeImport      = lazy(() => import("@/pages/employee-import"));
 const Interventions       = lazy(() => import("@/pages/interventions"));
 const CompanyProfile      = lazy(() => import("@/pages/company-profile"));
+const DenunciaPublica     = lazy(() => import("@/pages/denuncia-publica"));
 const Notifications       = lazy(() => import("@/pages/notifications"));
 const EmployeeDetail      = lazy(() => import("@/pages/employee-detail"));
 
