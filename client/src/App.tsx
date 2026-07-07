@@ -90,6 +90,7 @@ const LoginRoute      = () => <Suspense fallback={<Loading />}><CompanyLogin /><
 const RegisterRoute   = () => <Suspense fallback={<Loading />}><CompanyRegister /></Suspense>;
 const PlansRoute      = () => <Suspense fallback={<Loading />}><SubscriptionPlans /></Suspense>;
 const QuestionnaireRoute = () => <Suspense fallback={<Loading />}><PublicQuestionnaire /></Suspense>;
+const DenunciaRoute = () => <Suspense fallback={<Loading />}><DenunciaPublica /></Suspense>;
 
 function App() {
   return (
@@ -106,6 +107,8 @@ function App() {
           <Route path="/plans"                component={PlansRoute} />
           <Route path="/subscription-plans"   component={PlansRoute} />
           <Route path="/cuestionario/:token"  component={QuestionnaireRoute} />
+          <Route path="/denuncia/:token" component={DenunciaRoute} />
+          <Route path="/denuncia" component={DenunciaRoute} />
           <Route path="/dashboard"            component={DashboardRoute} />
           <Route path="/onboarding"           component={OnboardingRoute} />
           <Route path="/employees"            component={EmployeesRoute} />
