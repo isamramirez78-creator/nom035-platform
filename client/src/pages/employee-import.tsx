@@ -1,209 +1,189 @@
 import { useState, useRef } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
+import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+
+const token = () => localStorage.getItem("company_token");
+const h = () => ({ Authorization: `Bearer ${token()}` });
 
 export default function EmployeeImport() {
   const { toast } = useToast();
-  const queryClient = useQueryClient();
-  const fileRef = useRef<HTMLInputElement>(null);
-  const [preview, setPreview] = useState<any[]>([]);
-  const [fileName, setFileName] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [result, setResult] = useState<any>(null);
 
-  const token = localStorage.getItem("company_token");
-  const headers = { ...(token ? { Authorization: `Bearer ${token}` } : {}) };
-
-  // Descargar plantilla
   const downloadTemplate = async (format: "excel" | "csv") => {
-    const res = await fetch(`/api/employees/template/${format}`, { headers });
-    if (!res.ok) { toast({ title: "Error al descargar plantilla", variant: "destructive" }); return; }
+    const res = await fetch(`/api/employees/template/${format}`, { headers: h() });
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `plantilla-empleados.${format === "excel" ? "xlsx" : "csv"}`;
+    a.download = format === "excel" ? "plantilla-empleados.xlsx" : "plantilla-empleados.csv";
     a.click();
     URL.revokeObjectURL(url);
   };
 
-  // Parsear CSV en el navegador
-  const parseCSV = (text: string) => {
-    const lines = text.split("\n").filter(l => l.trim() && !l.startsWith("#"));
-    if (lines.length < 2) return [];
-    const headers = lines[0].split(",").map(h => h.trim().toLowerCase().replace(/\s+/g, "_"));
-    return lines.slice(1).map(line => {
-      const vals = line.split(",").map(v => v.trim().replace(/^"|"$/g, ""));
-      const obj: any = {};
-      headers.forEach((h, i) => { obj[h] = vals[i] || ""; });
-      return obj;
-    }).filter(r => r.nombre);
-  };
-
-  // Leer archivo seleccionado
-  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setFileName(file.name);
-
-    if (file.name.endsWith(".csv")) {
-      const text = await file.text();
-      setPreview(parseCSV(text).slice(0, 5));
-    } else if (file.name.endsWith(".xlsx")) {
-      // Para xlsx usamos el endpoint del servidor para parsear
-      const fd = new FormData();
-      fd.append("file", file);
-      const res = await fetch("/api/employees/preview-import", { method: "POST", headers, body: fd });
-      if (res.ok) {
-        const data = await res.json();
-        setPreview((data.preview || []).slice(0, 5));
-      } else {
-        toast({ title: "No se pudo leer el archivo Excel", description: "Usa la plantilla CSV", variant: "destructive" });
-      }
-    }
-  };
-
-  // Importar empleados
   const importMutation = useMutation({
-    mutationFn: async () => {
-      const file = fileRef.current?.files?.[0];
-      if (!file) throw new Error("Selecciona un archivo primero");
-
-      if (file.name.endsWith(".csv")) {
-        const text = await file.text();
-        const employees = parseCSV(text);
-        if (!employees.length) throw new Error("El archivo no contiene empleados válidos");
-
-        const res = await fetch("/api/employees/import", {
-          method: "POST",
-          headers: { ...headers, "Content-Type": "application/json" },
-          body: JSON.stringify({ employees }),
-        });
-        const json = await res.json();
-        if (!res.ok) throw new Error(json.message || "Error al importar");
-        return json;
-      } else {
-        const fd = new FormData();
-        fd.append("file", file);
-        const res = await fetch("/api/employees/import-excel", { method: "POST", headers, body: fd });
-        const json = await res.json();
-        if (!res.ok) throw new Error(json.message || "Error al importar");
-        return json;
-      }
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/employees/import", {
+        method: "POST",
+        headers: h(),
+        body: formData,
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message || "Error al importar");
+      return json;
     },
     onSuccess: (data) => {
+      setResult(data);
       queryClient.invalidateQueries({ queryKey: ["/api/employees"] });
       queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
-      setPreview([]);
-      setFileName("");
-      if (fileRef.current) fileRef.current.value = "";
-      toast({
-        title: "Importación exitosa",
-        description: `${data.imported || 0} empleados importados${data.errors > 0 ? `, ${data.errors} con errores` : ""}.`,
-      });
     },
     onError: (e: Error) => {
       toast({ title: "Error al importar", description: e.message, variant: "destructive" });
     },
   });
 
-  const COL_LABELS: Record<string, string> = {
-    nombre: "Nombre", apellido_paterno: "Ap. Paterno", apellido_materno: "Ap. Materno",
-    apellidos: "Apellidos", numero_empleado: "No. Empleado", puesto: "Puesto",
-    area: "Área", fecha_ingreso: "Fecha Ingreso", email: "Email",
-    rfc: "RFC", curp: "CURP", genero: "Género", generacion: "Generación",
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const valid = file.name.endsWith(".xlsx") || file.name.endsWith(".xls") || file.name.endsWith(".csv");
+    if (!valid) {
+      toast({ title: "Formato no válido", description: "Solo .xlsx, .xls o .csv", variant: "destructive" });
+      return;
+    }
+    setSelectedFile(file);
+    setResult(null);
   };
 
   return (
-    <div className="page-container space-y-6">
-      <div className="flex items-center gap-3">
-        <div style={{ width: 3, height: "2.5rem", background: "#84CC16", borderRadius: 2 }} />
-        <div>
-          <h1 className="page-title">Importar Empleados</h1>
-          <p className="page-subtitle">Carga masiva desde archivo Excel o CSV</p>
+    <div style={{ padding: "2rem", maxWidth: 800, margin: "0 auto", fontFamily: "Inter,sans-serif" }}>
+      <h1 style={{ color: "#1E3A5F", fontSize: 24, fontWeight: 700, marginBottom: 4 }}>Importación Masiva de Empleados</h1>
+      <p style={{ color: "#64748B", fontSize: 14, marginBottom: 32 }}>
+        Descarga la plantilla, llénala con los datos de tus empleados y súbela para importarlos todos a la vez.
+      </p>
+
+      {/* PASO 1 */}
+      <div style={{ background: "white", borderRadius: 16, padding: "1.5rem", border: "0.5px solid #E2E8F0", marginBottom: 16, boxShadow: "0 1px 4px rgba(0,0,0,0.05)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+          <div style={{ width: 32, height: 32, background: "#1E3A5F", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <span style={{ color: "white", fontWeight: 700, fontSize: 14 }}>1</span>
+          </div>
+          <div>
+            <h2 style={{ color: "#1E3A5F", fontSize: 16, fontWeight: 700, margin: 0 }}>Descarga la plantilla</h2>
+            <p style={{ color: "#64748B", fontSize: 13, margin: 0 }}>Elige el formato que prefieras</p>
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: 12 }}>
+          <button
+            onClick={() => downloadTemplate("excel")}
+            style={{ flex: 1, padding: "12px", borderRadius: 10, border: "1.5px solid #1E3A5F", background: "#1E3A5F", color: "white", fontWeight: 600, fontSize: 14, cursor: "pointer" }}>
+            📥 Descargar plantilla Excel (.xlsx)
+          </button>
+          <button
+            onClick={() => downloadTemplate("csv")}
+            style={{ flex: 1, padding: "12px", borderRadius: 10, border: "1.5px solid #E2E8F0", background: "white", color: "#1E3A5F", fontWeight: 600, fontSize: 14, cursor: "pointer" }}>
+            📥 Descargar plantilla CSV
+          </button>
         </div>
       </div>
 
-      {/* Paso 1 — Descargar plantilla */}
-      <div className="section-card">
-        <div className="section-header"><div className="lime-dot" /><h3>Paso 1 — Descarga la plantilla</h3></div>
-        <div className="p-5">
-          <p className="text-sm text-slate-600 mb-4">
-            Usa nuestra plantilla para asegurarte de que los datos están en el formato correcto.
-            Incluye ejemplos y validaciones de formato.
+      {/* PASO 2 */}
+      <div style={{ background: "white", borderRadius: 16, padding: "1.5rem", border: "0.5px solid #E2E8F0", marginBottom: 16, boxShadow: "0 1px 4px rgba(0,0,0,0.05)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+          <div style={{ width: 32, height: 32, background: "#84CC16", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <span style={{ color: "#1E3A5F", fontWeight: 700, fontSize: 14 }}>2</span>
+          </div>
+          <div>
+            <h2 style={{ color: "#1E3A5F", fontSize: 16, fontWeight: 700, margin: 0 }}>Llena la plantilla</h2>
+            <p style={{ color: "#64748B", fontSize: 13, margin: 0 }}>Agrega los datos de cada empleado en una fila</p>
+          </div>
+        </div>
+        <div style={{ background: "#F8FAFC", borderRadius: 10, padding: "1rem", border: "0.5px solid #E2E8F0" }}>
+          <p style={{ color: "#64748B", fontSize: 13, margin: 0, lineHeight: 1.6 }}>
+            ✅ Columnas <strong>obligatorias</strong>: Nombre, Apellido Paterno, Puesto, Área, Fecha Ingreso<br/>
+            ☑️ Columnas <strong>opcionales</strong>: Apellido Materno, No. Empleado, Email, RFC, CURP, Género, Generación<br/>
+            📅 Formato de fecha: <strong>DD/MM/AAAA</strong> — Ej: 15/03/2024
           </p>
-          <div className="flex gap-3 flex-wrap">
-            <Button onClick={() => downloadTemplate("excel")} className="btn-primary gap-2">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
-              </svg>
-              Plantilla Excel (.xlsx)
-            </Button>
-            <Button variant="outline" onClick={() => downloadTemplate("csv")} className="gap-2">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
-              </svg>
-              Plantilla CSV
-            </Button>
-          </div>
-          <div className="mt-4 p-3 rounded-lg text-sm" style={{ background: "#FFFBEB", border: "1px solid #FDE68A" }}>
-            <strong>Columnas requeridas:</strong> nombre, apellido_paterno, puesto, area, fecha_ingreso (DD/MM/AAAA)<br/>
-            <strong>Columnas opcionales:</strong> apellido_materno, numero_empleado, email, rfc, curp, genero, generacion
-          </div>
         </div>
       </div>
 
-      {/* Paso 2 — Seleccionar archivo */}
-      <div className="section-card">
-        <div className="section-header"><div className="lime-dot" /><h3>Paso 2 — Selecciona tu archivo</h3></div>
-        <div className="p-5">
+      {/* PASO 3 */}
+      <div style={{ background: "white", borderRadius: 16, padding: "1.5rem", border: "0.5px solid #E2E8F0", boxShadow: "0 1px 4px rgba(0,0,0,0.05)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+          <div style={{ width: 32, height: 32, background: "#84CC16", borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <span style={{ color: "#1E3A5F", fontWeight: 700, fontSize: 14 }}>3</span>
+          </div>
+          <div>
+            <h2 style={{ color: "#1E3A5F", fontSize: 16, fontWeight: 700, margin: 0 }}>Sube el archivo e importa</h2>
+            <p style={{ color: "#64748B", fontSize: 13, margin: 0 }}>Selecciona el archivo llenado y haz clic en "Importar"</p>
+          </div>
+        </div>
+
+        <input ref={fileInputRef} type="file" accept=".xlsx,.xls,.csv"
+          onChange={handleFileChange} style={{ display: "none" }} />
+
+        {!selectedFile ? (
           <div
-            onClick={() => fileRef.current?.click()}
-            className="border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors"
-            style={{ borderColor: "#CBD5E1" }}
+            onClick={() => fileInputRef.current?.click()}
+            style={{ border: "2px dashed #CBD5E1", borderRadius: 12, padding: "2rem", textAlign: "center", cursor: "pointer", transition: "border-color 0.2s" }}
             onMouseEnter={e => (e.currentTarget.style.borderColor = "#84CC16")}
-            onMouseLeave={e => (e.currentTarget.style.borderColor = "#CBD5E1")}
-          >
-            <svg className="mx-auto mb-3" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#94A3B8" strokeWidth="1.5">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
-            </svg>
-            {fileName
-              ? <p className="font-semibold text-slate-700">{fileName}</p>
-              : <><p className="font-medium text-slate-600">Haz clic para seleccionar o arrastra el archivo aquí</p>
-                <p className="text-sm text-slate-400 mt-1">Formatos: .xlsx, .csv</p></>
-            }
+            onMouseLeave={e => (e.currentTarget.style.borderColor = "#CBD5E1")}>
+            <div style={{ fontSize: 32, marginBottom: 8 }}>📂</div>
+            <p style={{ color: "#1E3A5F", fontWeight: 600, margin: "0 0 4px" }}>Haz clic para seleccionar el archivo</p>
+            <p style={{ color: "#94A3B8", fontSize: 13, margin: 0 }}>O arrastra el archivo aquí — .xlsx, .xls, .csv</p>
           </div>
-          <input ref={fileRef} type="file" accept=".xlsx,.csv" className="hidden" onChange={handleFile} />
-        </div>
-      </div>
+        ) : (
+          <div>
+            <div style={{ background: "#EFF6FF", borderRadius: 10, padding: "1rem", marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div>
+                <p style={{ color: "#1E3A5F", fontWeight: 600, margin: "0 0 2px", fontSize: 14 }}>📄 {selectedFile.name}</p>
+                <p style={{ color: "#3B82F6", fontSize: 12, margin: 0 }}>{(selectedFile.size / 1024).toFixed(1)} KB</p>
+              </div>
+              <button onClick={() => { setSelectedFile(null); setResult(null); if (fileInputRef.current) fileInputRef.current.value = ""; }}
+                style={{ background: "none", border: "1px solid #CBD5E1", borderRadius: 8, padding: "4px 12px", cursor: "pointer", color: "#64748B", fontSize: 13 }}>
+                Cambiar
+              </button>
+            </div>
 
-      {/* Vista previa */}
-      {preview.length > 0 && (
-        <div className="section-card">
-          <div className="section-header"><div className="lime-dot" /><h3>Vista previa (primeros {preview.length} registros)</h3></div>
-          <div className="overflow-x-auto">
-            <table className="data-table">
-              <thead>
-                <tr>{Object.keys(preview[0]).map(k => (
-                  <th key={k}>{COL_LABELS[k] || k}</th>
-                ))}</tr>
-              </thead>
-              <tbody>
-                {preview.map((row, i) => (
-                  <tr key={i}>{Object.values(row).map((v: any, j) => (
-                    <td key={j} className="text-sm">{v || "—"}</td>
-                  ))}</tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <div className="p-5">
-            <Button onClick={() => importMutation.mutate()} disabled={importMutation.isPending} className="btn-lime gap-2">
-              {importMutation.isPending ? "Importando..." : "Confirmar e Importar"}
+            <Button
+              onClick={() => importMutation.mutate(selectedFile)}
+              disabled={importMutation.isPending}
+              style={{ width: "100%", height: 48, fontSize: 16, fontWeight: 600, background: "#1E3A5F", color: "white", borderRadius: 10 }}>
+              {importMutation.isPending ? "⏳ Importando empleados..." : "⬆️ Importar Empleados"}
             </Button>
           </div>
-        </div>
-      )}
+        )}
+
+        {/* Resultado */}
+        {result && (
+          <div style={{ marginTop: 16, padding: "1rem", borderRadius: 10, background: result.errors?.length > 0 ? "#FFF7ED" : "#F0FDF4", border: `1px solid ${result.errors?.length > 0 ? "#FED7AA" : "#BBF7D0"}` }}>
+            <p style={{ color: result.errors?.length > 0 ? "#9A3412" : "#15803D", fontWeight: 700, margin: "0 0 8px", fontSize: 15 }}>
+              {result.errors?.length > 0 ? "⚠️ Importación con errores" : "✅ Importación exitosa"}
+            </p>
+            <p style={{ color: "#374151", fontSize: 14, margin: "0 0 4px" }}>
+              ✅ Importados correctamente: <strong>{result.successful || 0}</strong>
+            </p>
+            {result.errors?.length > 0 && (
+              <p style={{ color: "#374151", fontSize: 14, margin: "0 0 8px" }}>
+                ❌ Con errores: <strong>{result.errors.length}</strong>
+              </p>
+            )}
+            {result.errors?.slice(0, 5).map((err: any, i: number) => (
+              <p key={i} style={{ color: "#9A3412", fontSize: 12, margin: "2px 0" }}>
+                Fila {err.row}: {err.error}
+              </p>
+            ))}
+            <button onClick={() => { setSelectedFile(null); setResult(null); }}
+              style={{ marginTop: 12, background: "#1E3A5F", color: "white", border: "none", borderRadius: 8, padding: "8px 20px", cursor: "pointer", fontSize: 13, fontWeight: 600 }}>
+              Importar otro archivo
+            </button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
