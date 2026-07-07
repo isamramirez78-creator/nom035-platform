@@ -495,7 +495,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (fileName.endsWith(".csv")) {
         // Procesar CSV
         const content2 = file.data.toString("utf-8").replace(/^﻿/, "");
-        const lines = content2.split(/?
+        const lines = content2.split(/
+?
 /).filter((l: string) => l.trim());
         const headers = lines[0].split(",").map((h: string) => h.trim().toLowerCase());
 
@@ -534,14 +535,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const XLSX = await import("xlsx");
         const wb = XLSX.read(file.data, { type: "buffer" });
         const ws = wb.Sheets[wb.SheetNames[0]];
-        const rows: any[] = XLSX.utils.sheet_to_json(ws, { defval: "" });
 
-        // Saltar filas de instrucciones/headers (buscar primera fila con datos reales)
-        const dataRows = rows.filter((r: any) => {
-          const vals = Object.values(r).map((v: any) => String(v).trim());
-          return vals.some(v => v && v !== "Obligatorio" && v !== "Opcional" &&
-            !v.includes("INSTRUCCIONES") && !v.includes("formato") && v.length > 1);
-        });
+        // Los headers están en fila 3 (índice 2), datos desde fila 5
+        // Usar header:1 para leer como arrays y procesar manualmente
+        const allRows: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
+
+        // Encontrar la fila de headers (la que tiene "Nombre(s)" o "nombre")
+        let headerRowIdx = -1;
+        for (let i = 0; i < allRows.length; i++) {
+          const row = allRows[i];
+          if (row.some((c: any) => String(c).toLowerCase().includes("nombre") && !String(c).includes("INSTRUCCIONES"))) {
+            headerRowIdx = i;
+            break;
+          }
+        }
+        if (headerRowIdx === -1) headerRowIdx = 2; // fallback fila 3
+
+        const headers = allRows[headerRowIdx].map((h: any) => String(h).toLowerCase()
+          .replace(/[()\/]/g, "").replace(/\s+/g, "_")
+          .replace("números", "numero").replace("número_empleado", "numero_empleado")
+          .replace("puesto___cargo", "puesto").replace("puesto__cargo", "puesto")
+          .replace("área___departamento", "area").replace("área__departamento", "area")
+          .replace("correo_electrónico", "email").replace("género", "genero")
+          .replace("generación", "generacion").replace("nombres", "nombre")
+        );
+
+        // Datos desde la fila después de headers+1 (saltando la de Obligatorio/Opcional)
+        const dataRows = allRows.slice(headerRowIdx + 2).map((row: any[]) => {
+          const obj: any = {};
+          headers.forEach((h2: string, idx: number) => { obj[h2] = String(row[idx] || "").trim(); });
+          return obj;
+        }).filter((r: any) => r.nombre && r.nombre !== "Obligatorio" && r.nombre.length > 1);
 
         for (let i = 0; i < dataRows.length; i++) {
           const row: any = {};
