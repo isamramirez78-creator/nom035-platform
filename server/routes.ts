@@ -1522,34 +1522,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   registerDuplicateCheckRoutes(app);
   registerInvitationRoutes(app);
 
-  // Endpoint publico de denuncias para empleados
-  app.post("/api/denuncias/publica/:token", async (req: any, res: any) => {
-    try {
-      const body = req.body;
-      if (!body.tipo || !body.descripcion) {
-        return res.status(400).json({ message: "Tipo y descripcion requeridos" });
-      }
-      const { db } = await import("./db.js");
-      const { sql } = await import("drizzle-orm");
-      const compResult = await db.execute(sql`SELECT id FROM companies WHERE is_active = true ORDER BY id LIMIT 1`);
-      const company = compResult.rows[0] as any;
-      if (!company) return res.status(404).json({ message: "Empresa no encontrada" });
-      const folio = "DEN-" + Date.now().toString(36).toUpperCase() + "-" + Math.random().toString(36).substr(2, 4).toUpperCase();
-      const anonima = body.anonima !== false;
-      await db.execute(sql`
-        INSERT INTO denuncias (company_id, folio, tipo, descripcion, area_involucrada, fecha_ocurrencia, anonima, nombre_denunciante, email_denunciante)
-        VALUES (${company.id}, ${folio}, ${body.tipo}, ${body.descripcion},
-          ${body.area_involucrada || null}, ${body.fecha_ocurrencia || null},
-          ${anonima}, ${anonima ? null : body.nombre_denunciante || null},
-          ${anonima ? null : body.email_denunciante || null})
-      `);
-      res.status(201).json({ folio, message: "Denuncia registrada correctamente" });
-    } catch (e: any) {
-      console.error("Error denuncia publica:", e);
-      res.status(500).json({ message: "Error al registrar la denuncia" });
-    }
-  });
-
   const httpServer = createServer(app);
   // ── Expedientes de trabajadores en riesgo ──────────────────────────────────
   // ── Rutas adicionales ──────────────────────────────────────────────────────
