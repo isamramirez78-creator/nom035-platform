@@ -786,66 +786,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Employee template and import routes (public for download)
   app.get("/api/employees/template/:format", async (req, res) => {
     try {
-      const format = req.params.format as 'excel' | 'csv';
-      
-      if (format === 'csv') {
-        // Generate CSV template with detailed examples
-        const csvHeaders = [
-          'nombre',
-          'apellidos', 
-          'email',
-          'puesto',
-          'area',
-          'fechaIngreso'
-        ];
+      const format = req.params.format as "excel" | "csv";
+
+      if (format === "excel" || format === "xlsx") {
+        // Servir archivo estático desde public/plantillas/
+        const path = await import("path");
+        const fs = await import("fs");
+        const { fileURLToPath } = await import("url");
+        const __dirname2 = path.dirname(fileURLToPath(import.meta.url));
+        const filePath = path.resolve(__dirname2, "..", "public", "plantillas", "plantilla-empleados.xlsx");
         
-        const csvContent = [
-          csvHeaders.join(','),
-          '# PLANTILLA DE IMPORTACIÓN DE EMPLEADOS',
-          '# Completa los datos siguiendo los ejemplos. No elimines esta línea de encabezados.',
-          '# ÁREAS VÁLIDAS: administracion, operaciones, ventas, recursos-humanos, finanzas, tecnologia, produccion',
-          '# FORMATO DE FECHA: DD/MM/AAAA (ejemplo: 15/03/2024)',
-          '# EJEMPLOS:',
-          'Juan,Pérez García,juan.perez@empresa.com,Analista de Sistemas,tecnologia,15/01/2024',
-          'María,López Rodríguez,maria.lopez@empresa.com,Gerente de Operaciones,operaciones,01/03/2024',
-          'Carlos,Martínez Sánchez,carlos.martinez@empresa.com,Contador Senior,administracion,10/02/2024',
-          'Ana,Fernández Torres,ana.fernandez@empresa.com,Ejecutiva de Ventas,ventas,22/04/2024',
-          'Roberto,Gómez Herrera,roberto.gomez@empresa.com,Supervisor de Producción,produccion,05/05/2024',
-          '# Elimina estas líneas de ejemplo y agrega tus empleados debajo'
-        ].join('\n');
-        
-        res.setHeader('Content-Type', 'text/csv');
-        res.setHeader('Content-Disposition', 'attachment; filename=plantilla-empleados.csv');
-        res.send(csvContent);
-      } else if (format === 'excel') {
-        // For Excel, we'll create a simple CSV that can be opened in Excel
-        // In a real implementation, you'd use a library like 'exceljs'
-        const csvHeaders = [
-          'nombre',
-          'apellidos',
-          'email', 
-          'puesto',
-          'area',
-          'fechaIngreso'
-        ];
-        
-        const csvContent = [
-          csvHeaders.join(','),
-          'Juan,Pérez García,juan.perez@empresa.com,Analista,administracion,01/01/2024',
-          'María,López Rodríguez,maria.lopez@empresa.com,Gerente,operaciones,15/03/2024'
-        ].join('\n');
-        
-        res.setHeader('Content-Type', 'application/vnd.ms-excel');
-        res.setHeader('Content-Disposition', 'attachment; filename=plantilla-empleados.xlsx');
-        res.send(csvContent);
-      } else {
-        res.status(400).json({ message: "Format not supported" });
+        if (fs.existsSync(filePath)) {
+          res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+          res.setHeader("Content-Disposition", "attachment; filename=plantilla-empleados.xlsx");
+          return res.sendFile(filePath);
+        }
       }
+
+      // CSV template
+      const csvContent = [
+        "nombre,apellido_paterno,apellido_materno,numero_empleado,puesto,area,fecha_ingreso,email,rfc,curp,genero,generacion",
+        "Juan Carlos,García,Martínez,EMP-001,Analista de Sistemas,Tecnología,15/01/2024,juan.garcia@empresa.com,GAMJ900115XX1,GAMJ900115HDFRTNA5,Masculino,Millennials",
+        "María Elena,López,Rodríguez,EMP-002,Gerente de Operaciones,Operaciones,01/03/2023,maria.lopez@empresa.com,,,Femenino,Generación X",
+      ].join("\n");
+
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader("Content-Disposition", "attachment; filename=plantilla-empleados.csv");
+      res.send("\uFEFF" + csvContent);
     } catch (error) {
-      console.error('Template generation error:', error);
-      res.status(500).json({ message: "Error generating template" });
+      console.error("Error downloading template:", error);
+      res.status(500).json({ message: "Error al descargar plantilla" });
     }
   });
+
 
   app.post("/api/employees/import", authenticateCompany, async (req: any, res) => {
     try {
