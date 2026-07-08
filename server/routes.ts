@@ -467,130 +467,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/interventions", async (req, res) => {
+  app.post("/api/interventions", authenticateCompany, async (req: any, res) => {
     try {
-      const validatedData = insertInterventionSchema.parse(req.body);
-      const intervention = await storage.createIntervention(validatedData);
-      res.status(201).json(intervention);
-    } catch (error) {
+      const body = req.body;
+      const companyId = req.company?.id;
+      const { db: db2 } = await import("./db.js");
+      const { sql: sql2 } = await import("drizzle-orm");
+      const result = await db2.execute(sql2`
+        INSERT INTO interventions
+          (employee_id, company_id, intervention_type, title, description, objective,
+           actions, responsible_person, status, priority, start_date, expected_end_date)
+        VALUES
+          (${parseInt(body.employeeId)}, ${companyId},
+           ${body.interventionType || "counseling"},
+           ${body.title || body.description?.substring(0,100) || "Intervención NOM-035"},
+           ${body.description || ""},
+           ${body.objective || null},
+           ${JSON.stringify(body.actions || [])}::jsonb,
+           ${body.responsiblePerson || "RRHH"},
+           ${body.status || "planned"},
+           ${body.priority || "medium"},
+           ${body.startDate || null},
+           ${body.expectedEndDate || body.endDate || null})
+        RETURNING *
+      `);
+      res.status(201).json(result.rows[0]);
+    } catch (error: any) {
       console.error("Error creating intervention:", error);
-      res.status(400).json({ message: "Error creating intervention" });
+      res.status(400).json({ message: error?.message || "Error al crear intervención" });
     }
   });
 
   // CSV import endpoint
-  // Endpoint para importar empleados desde Excel o CSV
-  app.post("/api/employees/import", authenticateCompany, async (req: any, res: any) => {
-    try {
-      if (!req.files || !req.files.file) {
-        return res.status(400).json({ message: "No se recibió ningún archivo" });
-      }
-
-      const file = req.files.file as any;
-      const fileName = file.name || "";
-      const companyId = req.company?.id;
-      const results: any[] = [];
-      const errors: any[] = [];
-
-      if (fileName.endsWith(".csv")) {
-        // Procesar CSV
-        const content2 = file.data.toString("utf-8").replace(/^﻿/, "");
-        const lines = content2.split("\n").map(function(l){return l.replace(/\r$/,"");}).filter(function(l){return l.trim();});
-        const headers = lines[0].split(",").map((h: string) => h.trim().toLowerCase());
-
-        for (let i = 1; i < lines.length; i++) {
-          const vals = lines[i].split(",").map((v: string) => v.trim());
-          if (vals.every((v: string) => !v)) continue;
-          const row: any = {};
-          headers.forEach((h2: string, idx: number) => { row[h2] = vals[idx] || ""; });
-
-          try {
-            const apellidos = (row.apellidos || (row.apellido_paterno + " " + (row.apellido_materno || "")).trim()).trim();
-            if (!row.nombre || !row.puesto || !row.area || !row.fecha_ingreso) {
-              errors.push({ row: i + 1, error: "Faltan campos obligatorios" });
-              continue;
-            }
-            const { db: db2 } = await import("./db.js");
-            const { sql: sql2 } = await import("drizzle-orm");
-            await db2.execute(sql2`
-              INSERT INTO employees (company_id, nombre, apellidos, apellido_paterno, apellido_materno,
-                numero_empleado, puesto, area, fecha_ingreso, email, rfc, curp, genero, generacion, risk_status)
-              VALUES (${companyId}, ${row.nombre}, ${apellidos},
-                ${row.apellido_paterno || null}, ${row.apellido_materno || null},
-                ${row.numero_empleado || null}, ${row.puesto}, ${row.area},
-                ${row.fecha_ingreso}, ${row.email || null},
-                ${row.rfc ? row.rfc.toUpperCase() : null},
-                ${row.curp ? row.curp.toUpperCase() : null},
-                ${row.genero || null}, ${row.generacion || null}, 'sin-evaluar')
-            `);
-            results.push({ success: true });
-          } catch (e: any) {
-            errors.push({ row: i + 1, error: e.message });
-          }
-        }
-      } else {
-        // Procesar Excel con xlsx
-        const XLSX = await import("xlsx");
-        const wb = XLSX.read(file.data, { type: "buffer" });
-        const ws = wb.Sheets[wb.SheetNames[0]];
-
-        // Los headers están en fila 3 (índice 2), datos desde fila 5
-        // Usar header:1 para leer como arrays y procesar manualmente
-        const allRows: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
-
-        // Encontrar la fila de headers (la que tiene "Nombre(s)" o "nombre")
-        // Mapeo posicional fijo según plantilla NOM-035
-        // Col 0=nombre, 1=apellido_paterno, 2=apellido_materno, 3=numero_empleado,
-        // 4=puesto, 5=area, 6=fecha_ingreso, 7=email, 8=rfc, 9=curp, 10=genero, 11=generacion
-        const COLS = ["nombre","apellido_paterno","apellido_materno","numero_empleado",
-          "puesto","area","fecha_ingreso","email","rfc","curp","genero","generacion"];
-
-        // Datos desde fila 5 (índice 4) en adelante
-        const dataRows = allRows.slice(4).map((row: any[]) => {
-          const obj: any = {};
-          COLS.forEach((col, idx) => { obj[col] = String(row[idx] || "").trim(); });
-          return obj;
-        }).filter((r: any) => r.nombre && r.nombre !== "Obligatorio" && r.nombre !== "" && r.nombre.length > 1);
-
-        for (let i = 0; i < dataRows.length; i++) {
-          const row: any = dataRows[i];
-          if (!row.nombre || !row.puesto || !row.area) continue;
-
-          try {
-            const apellidoPat = row.apellido_paterno || "";
-            const apellidoMat = row.apellido_materno || "";
-            const apellidos = (apellidoPat + " " + apellidoMat).trim();
-            const { db: db3 } = await import("./db.js");
-            const { sql: sql3 } = await import("drizzle-orm");
-            await db3.execute(sql3`
-              INSERT INTO employees (company_id, nombre, apellidos, apellido_paterno, apellido_materno,
-                numero_empleado, puesto, area, fecha_ingreso, email, rfc, curp, genero, generacion, risk_status)
-              VALUES (${companyId}, ${row.nombre}, ${apellidos || null},
-                ${apellidoPat || null}, ${apellidoMat || null},
-                ${row.numero_empleado || null}, ${row.puesto}, ${row.area},
-                ${row.fecha_ingreso || null}, ${row.email || null},
-                ${row.rfc ? row.rfc.toUpperCase() : null},
-                ${row.curp ? row.curp.toUpperCase() : null},
-                ${row.genero || null}, ${row.generacion || null}, 'sin-evaluar')
-            `);
-            results.push({ success: true });
-          } catch (e: any) {
-            errors.push({ row: i + 1, error: e.message });
-          }
-        }
-      }
-
-      res.json({
-        successful: results.length,
-        errors,
-        message: results.length > 0 ? "Importación completada" : "No se encontraron empleados para importar"
-      });
-    } catch (e: any) {
-      console.error("Error importing employees:", e);
-      res.status(500).json({ message: e.message || "Error al importar empleados" });
-    }
-  });
-
   app.post("/api/employees/import-csv", async (req, res) => {
     try {
       const { employees: employeeData } = req.body;
