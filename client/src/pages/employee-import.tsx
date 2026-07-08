@@ -54,7 +54,7 @@ export default function EmployeeImport() {
     if (!file) return;
     const valid = file.name.endsWith(".xlsx") || file.name.endsWith(".xls") || file.name.endsWith(".csv");
     if (!valid) {
-      toast({ title: "Formato no válido", description: "Solo .xlsx, .xls o .csv", variant: "destructive" });
+      toast({ title: "Formato no válido", description: "Solo .xlsx o .xls", variant: "destructive" });
       return;
     }
     setSelectedFile(file);
@@ -79,18 +79,11 @@ export default function EmployeeImport() {
             <p style={{ color: "#64748B", fontSize: 13, margin: 0 }}>Elige el formato que prefieras</p>
           </div>
         </div>
-        <div style={{ display: "flex", gap: 12 }}>
-          <button
+        <button
             onClick={() => downloadTemplate("excel")}
-            style={{ flex: 1, padding: "12px", borderRadius: 10, border: "1.5px solid #1E3A5F", background: "#1E3A5F", color: "white", fontWeight: 600, fontSize: 14, cursor: "pointer" }}>
+            style={{ width: "100%", padding: "14px", borderRadius: 10, border: "1.5px solid #1E3A5F", background: "#1E3A5F", color: "white", fontWeight: 600, fontSize: 15, cursor: "pointer" }}>
             📥 Descargar plantilla Excel (.xlsx)
           </button>
-          <button
-            onClick={() => downloadTemplate("csv")}
-            style={{ flex: 1, padding: "12px", borderRadius: 10, border: "1.5px solid #E2E8F0", background: "white", color: "#1E3A5F", fontWeight: 600, fontSize: 14, cursor: "pointer" }}>
-            📥 Descargar plantilla CSV
-          </button>
-        </div>
       </div>
 
       {/* PASO 2 */}
@@ -125,7 +118,7 @@ export default function EmployeeImport() {
           </div>
         </div>
 
-        <input ref={fileInputRef} type="file" accept=".xlsx,.xls,.csv"
+        <input ref={fileInputRef} type="file" accept=".xlsx,.xls"
           onChange={handleFileChange} style={{ display: "none" }} />
 
         {!selectedFile ? (
@@ -136,7 +129,7 @@ export default function EmployeeImport() {
             onMouseLeave={e => (e.currentTarget.style.borderColor = "#CBD5E1")}>
             <div style={{ fontSize: 32, marginBottom: 8 }}>📂</div>
             <p style={{ color: "#1E3A5F", fontWeight: 600, margin: "0 0 4px" }}>Haz clic para seleccionar el archivo</p>
-            <p style={{ color: "#94A3B8", fontSize: 13, margin: 0 }}>O arrastra el archivo aquí — .xlsx, .xls, .csv</p>
+            <p style={{ color: "#94A3B8", fontSize: 13, margin: 0 }}>O arrastra el archivo aquí — .xlsx, .xls</p>
           </div>
         ) : (
           <div>
