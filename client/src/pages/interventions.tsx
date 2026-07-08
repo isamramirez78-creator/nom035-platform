@@ -96,7 +96,29 @@ export default function Interventions() {
 
   const createInterventionMutation = useMutation({
     mutationFn: async (data: any) => {
-      return apiRequest("POST", "/api/interventions", data);
+      // Mapear campos del formulario al schema del servidor
+      const payload = {
+        employeeId: parseInt(data.employeeId),
+        interventionType: data.type || "counseling",
+        title: data.description?.substring(0, 100) || "Intervención NOM-035",
+        description: data.description,
+        objective: data.objective || null,
+        actions: [],
+        responsiblePerson: data.responsiblePerson || "RRHH",
+        status: "planned",
+        priority: "medium",
+        startDate: data.startDate || null,
+        expectedEndDate: data.endDate || null,
+      };
+      const tk = localStorage.getItem("company_token");
+      const res = await fetch("/api/interventions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...(tk ? { Authorization: `Bearer ${tk}` } : {}) },
+        body: JSON.stringify(payload),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message || "Error al crear");
+      return json;
     },
     onSuccess: () => {
       toast({
