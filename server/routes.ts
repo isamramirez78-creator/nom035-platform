@@ -494,8 +494,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (fileName.endsWith(".csv")) {
         // Procesar CSV
-        const content2 = file.data.toString("utf-8");
-        const lines = content2.split("\n").map((l: string) => l.replace(/\r$/, "")).filter((l: string) => l.trim());
+        const content2 = file.data.toString("utf-8").replace(/^﻿/, "");
+        const lines = content2.split(/
+?
+/).filter((l: string) => l.trim());
+        const headers = lines[0].split(",").map((h: string) => h.trim().toLowerCase());
+
         for (let i = 1; i < lines.length; i++) {
           const vals = lines[i].split(",").map((v: string) => v.trim());
           if (vals.every((v: string) => !v)) continue;
@@ -537,47 +541,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const allRows: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
 
         // Encontrar la fila de headers (la que tiene "Nombre(s)" o "nombre")
-        let headerRowIdx = -1;
-        for (let i = 0; i < allRows.length; i++) {
-          const row = allRows[i];
-          if (row.some((c: any) => String(c).toLowerCase().includes("nombre") && !String(c).includes("INSTRUCCIONES"))) {
-            headerRowIdx = i;
-            break;
-          }
-        }
-        if (headerRowIdx === -1) headerRowIdx = 2; // fallback fila 3
+        // Mapeo posicional fijo según plantilla NOM-035
+        // Col 0=nombre, 1=apellido_paterno, 2=apellido_materno, 3=numero_empleado,
+        // 4=puesto, 5=area, 6=fecha_ingreso, 7=email, 8=rfc, 9=curp, 10=genero, 11=generacion
+        const COLS = ["nombre","apellido_paterno","apellido_materno","numero_empleado",
+          "puesto","area","fecha_ingreso","email","rfc","curp","genero","generacion"];
 
-        const headers = allRows[headerRowIdx].map((h: any) => String(h).toLowerCase()
-          .replace(/[()\/]/g, "").replace(/\s+/g, "_")
-          .replace("números", "numero").replace("número_empleado", "numero_empleado")
-          .replace("puesto___cargo", "puesto").replace("puesto__cargo", "puesto")
-          .replace("área___departamento", "area").replace("área__departamento", "area")
-          .replace("correo_electrónico", "email").replace("género", "genero")
-          .replace("generación", "generacion").replace("nombres", "nombre")
-        );
-
-        // Datos desde la fila después de headers+1 (saltando la de Obligatorio/Opcional)
-        const dataRows = allRows.slice(headerRowIdx + 2).map((row: any[]) => {
+        // Datos desde fila 5 (índice 4) en adelante
+        const dataRows = allRows.slice(4).map((row: any[]) => {
           const obj: any = {};
-          headers.forEach((h2: string, idx: number) => { obj[h2] = String(row[idx] || "").trim(); });
+          COLS.forEach((col, idx) => { obj[col] = String(row[idx] || "").trim(); });
           return obj;
-        }).filter((r: any) => r.nombre && r.nombre !== "Obligatorio" && r.nombre.length > 1);
+        }).filter((r: any) => r.nombre && r.nombre !== "Obligatorio" && r.nombre !== "" && r.nombre.length > 1);
 
         for (let i = 0; i < dataRows.length; i++) {
-          const row: any = {};
-          // Normalizar claves
-          Object.entries(dataRows[i]).forEach(([k, v]) => {
-            const key = String(k).toLowerCase()
-              .replace(/[()\/]/g, "").replace(/\s+/g, "_")
-              .replace("nombres", "nombre").replace("apellido_paterno", "apellido_paterno")
-              .replace("apellido_materno", "apellido_materno")
-              .replace("número_empleado", "numero_empleado").replace("número", "numero")
-              .replace("puesto__cargo", "puesto").replace("área__departamento", "area")
-              .replace("fecha_ingreso", "fecha_ingreso").replace("correo_electrónico", "email")
-              .replace("género", "genero").replace("generación", "generacion");
-            row[key] = String(v).trim();
-          });
-
+          const row: any = dataRows[i];
           if (!row.nombre || !row.puesto || !row.area) continue;
 
           try {
