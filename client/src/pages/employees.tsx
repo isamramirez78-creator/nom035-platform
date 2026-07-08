@@ -10,22 +10,13 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Eye, Download, FileText } from "lucide-react";
-import { useIndividualReport } from "@/hooks/use-individual-report";
+import { Eye, Download, Upload, FileText, HelpCircle } from "lucide-react";
 import type { Employee } from "@shared/schema";
 
 export default function Employees() {
   const [searchTerm, setSearchTerm] = useState("");
   const [areaFilter, setAreaFilter] = useState("all");
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
-  const [generatingReportId, setGeneratingReportId] = useState<number | null>(null);
-  const { generateReport } = useIndividualReport();
-
-  const handleGenerateReport = async (employeeId: number) => {
-    setGeneratingReportId(employeeId);
-    await generateReport(employeeId);
-    setGeneratingReportId(null);
-  };
   const { toast } = useToast();
 
   const { data: employees = [], isLoading } = useQuery<Employee[]>({
@@ -34,12 +25,12 @@ export default function Employees() {
 
   const deleteEmployeeMutation = useMutation({
     mutationFn: async (id: number) => {
-      const tk = localStorage.getItem("company_token");
       const response = await fetch(`/api/employees/${id}`, {
         method: "DELETE",
-        headers: tk ? { Authorization: `Bearer ${tk}` } : {},
       });
-      if (!response.ok) throw new Error("Error al eliminar empleado");
+      if (!response.ok) {
+        throw new Error("Error al eliminar empleado");
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/employees"] });
@@ -57,61 +48,7 @@ export default function Employees() {
     },
   });
 
-  const handleCSVImport = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const csv = e.target?.result as string;
-      const lines = csv.split('\n');
-      const headers = lines[0].split(',').map(h => h.trim());
-      
-      const employeeData = lines.slice(1)
-        .filter(line => line.trim())
-        .map(line => {
-          const values = line.split(',').map(v => v.trim());
-          return {
-            nombre: values[0] || '',
-            apellidos: values[1] || '',
-            puesto: values[2] || '',
-            area: values[3] || '',
-            fechaIngreso: values[4] || '',
-            email: values[5] || ''
-          };
-        });
-
-      // Send data to the API for bulk import
-      fetch('/api/employees/import-csv', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ employees: employeeData }),
-      })
-      .then(response => response.json())
-      .then(data => {
-        const successful = data.results.filter((r: any) => r.success).length;
-        const failed = data.results.filter((r: any) => !r.success).length;
-        
-        toast({
-          title: "Importación completada",
-          description: `${successful} empleados importados correctamente${failed > 0 ? `, ${failed} fallaron` : ''}`,
-        });
-        
-        // Refresh the employee list
-        queryClient.invalidateQueries({ queryKey: ["/api/employees"] });
-      })
-      .catch(error => {
-        toast({
-          title: "Error en la importación",
-          description: "No se pudieron importar los empleados",
-          variant: "destructive",
-        });
-      });
-    };
-    reader.readAsText(file);
-  };
 
   const filteredEmployees = employees.filter(employee => {
     const matchesSearch = !searchTerm || 
@@ -162,25 +99,6 @@ export default function Employees() {
             />
 
             <div className="mt-6 pt-6 border-t border-slate-200">
-              <h4 className="text-sm font-medium text-slate-900 mb-3">Importar desde CSV</h4>
-              <div className="border-2 border-dashed border-slate-300 rounded-lg p-6 text-center">
-                <i className="fas fa-file-csv text-3xl text-slate-400 mb-2"></i>
-                <p className="text-sm text-slate-600 mb-2">Arrastra tu archivo CSV aquí o</p>
-                <input 
-                  type="file" 
-                  id="csvFile" 
-                  accept=".csv" 
-                  className="hidden"
-                  onChange={handleCSVImport}
-                />
-                <button 
-                  onClick={() => document.getElementById('csvFile')?.click()} 
-                  className="text-brand-600 hover:text-brand-500 text-sm font-medium"
-                >
-                  selecciona archivo
-                </button>
-              </div>
-            </div>
           </div>
         </div>
 
@@ -270,43 +188,41 @@ export default function Employees() {
                             );
                           })()}
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm font-medium">
-                          <div className="flex items-center gap-1 flex-wrap">
-                            <Link href={`/employees/${employee.id}`}>
-                              <button className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors"
-                                style={{ background: "#EFF6FF", color: "#1E3A5F" }}
-                                onMouseEnter={e=>(e.currentTarget.style.background="#DBEAFE")}
-                                onMouseLeave={e=>(e.currentTarget.style.background="#EFF6FF")}>
-                                <Eye className="h-3 w-3" /> Ver
-                              </button>
-                            </Link>
-                            <button
-                              onClick={() => setEditingEmployee(employee)}
-                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors"
-                              style={{ background: "#F1F5F9", color: "#475569" }}
-                              onMouseEnter={e=>(e.currentTarget.style.background="#E2E8F0")}
-                              onMouseLeave={e=>(e.currentTarget.style.background="#F1F5F9")}>
-                              Editar
-                            </button>
-                            <button
-                              onClick={() => handleGenerateReport(employee.id)}
-                              disabled={generatingReportId === employee.id}
-                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-60"
-                              style={{ background: "#ECFCCB", color: "#3F6212" }}
-                              onMouseEnter={e=>{ if(generatingReportId!==employee.id) e.currentTarget.style.background="#D9F99D" }}
-                              onMouseLeave={e=>(e.currentTarget.style.background="#ECFCCB")}>
-                              <FileText className="h-3 w-3" />
-                              {generatingReportId === employee.id ? "..." : "Reporte"}
-                            </button>
-                            <button
-                              onClick={() => deleteEmployeeMutation.mutate(employee.id)}
-                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors"
-                              style={{ background: "#FEE2E2", color: "#991B1B" }}
-                              onMouseEnter={e=>(e.currentTarget.style.background="#FECACA")}
-                              onMouseLeave={e=>(e.currentTarget.style.background="#FEE2E2")}>
-                              Eliminar
-                            </button>
-                          </div>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                          <Link href={`/employees/${employee.id}`}>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-blue-600 hover:text-blue-500 mr-3"
+                            >
+                              <Eye className="h-4 w-4 mr-1" />
+                              Ver Expediente
+                            </Button>
+                          </Link>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setEditingEmployee(employee)}
+                            className="text-brand-600 hover:text-brand-500 mr-3"
+                          >
+                            Editar
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => window.location.href = '/questionnaires'}
+                            className="text-amber-600 hover:text-amber-500 mr-3"
+                          >
+                            Evaluar
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => deleteEmployeeMutation.mutate(employee.id)}
+                            className="text-red-600 hover:text-red-500"
+                          >
+                            Eliminar
+                          </Button>
                         </td>
                       </tr>
                     ))}
