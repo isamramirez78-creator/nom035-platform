@@ -28,9 +28,11 @@ export default function EmployeeImport() {
     mutationFn: async (file: File) => {
       const formData = new FormData();
       formData.append("file", file);
+      // No incluir Content-Type header — fetch lo establece automaticamente con boundary para FormData
+      const tk = localStorage.getItem("company_token");
       const res = await fetch("/api/employees/import", {
         method: "POST",
-        headers: h(),
+        headers: tk ? { Authorization: `Bearer ${tk}` } : {},
         body: formData,
       });
       const json = await res.json();
