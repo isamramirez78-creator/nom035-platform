@@ -456,11 +456,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Interventions routes
-  app.get("/api/interventions/employee/:employeeId", async (req, res) => {
+  // GET /api/interventions — lista todas las intervenciones de la empresa
+  app.get("/api/interventions", authenticateCompany, async (req: any, res) => {
+    try {
+      const companyId = req.company?.id;
+      const { employeeId, status } = req.query;
+      const { db: db2 } = await import("./db.js");
+      const { sql: sql2 } = await import("drizzle-orm");
+      const result = await db2.execute(sql2`
+        SELECT i.*, e.nombre, e.apellidos, e.apellido_paterno, e.puesto, e.area
+        FROM interventions i
+        LEFT JOIN employees e ON e.id = i.employee_id
+        WHERE i.company_id = ${companyId}
+        ${employeeId ? sql2`AND i.employee_id = ${parseInt(employeeId as string)}` : sql2``}
+        ${status ? sql2`AND i.status = ${status}` : sql2``}
+        ORDER BY i.created_at DESC
+      `);
+      res.json(result.rows);
+    } catch (error) {
+      console.error("Error fetching interventions:", error);
+      res.status(500).json({ message: "Error fetching interventions" });
+    }
+  });
+
+  app.get("/api/interventions/employee/:employeeId", authenticateCompany, async (req: any, res) => {
     try {
       const employeeId = parseInt(req.params.employeeId);
-      const interventions = await storage.getInterventionsByEmployee(employeeId);
-      res.json(interventions);
+      const companyId = req.company?.id;
+      const { db: db2 } = await import("./db.js");
+      const { sql: sql2 } = await import("drizzle-orm");
+      const result = await db2.execute(sql2`
+        SELECT i.*, e.nombre, e.apellidos, e.puesto, e.area
+        FROM interventions i
+        LEFT JOIN employees e ON e.id = i.employee_id
+        WHERE i.employee_id = ${employeeId} AND i.company_id = ${companyId}
+        ORDER BY i.created_at DESC
+      `);
+      res.json(result.rows);
     } catch (error) {
       console.error("Error fetching interventions:", error);
       res.status(500).json({ message: "Error fetching interventions" });
