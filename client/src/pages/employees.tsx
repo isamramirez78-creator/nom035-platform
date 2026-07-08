@@ -49,7 +49,6 @@ export default function Employees() {
   });
 
 
-
   const filteredEmployees = employees.filter(employee => {
     const matchesSearch = !searchTerm || 
       employee.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -98,7 +97,6 @@ export default function Employees() {
               onSuccess={() => setEditingEmployee(null)}
             />
 
-            <div className="mt-6 pt-6 border-t border-slate-200">
           </div>
         </div>
 
