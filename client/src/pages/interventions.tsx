@@ -96,10 +96,7 @@ export default function Interventions() {
 
   const createInterventionMutation = useMutation({
     mutationFn: async (data: any) => {
-      return apiRequest("/api/interventions", {
-        method: "POST",
-        body: JSON.stringify(data),
-      });
+      return apiRequest("POST", "/api/interventions", data);
     },
     onSuccess: () => {
       toast({
@@ -121,10 +118,7 @@ export default function Interventions() {
 
   const updateInterventionMutation = useMutation({
     mutationFn: async ({ id, updates }: { id: number; updates: any }) => {
-      return apiRequest(`/api/interventions/${id}`, {
-        method: "PATCH",
-        body: JSON.stringify(updates),
-      });
+      return apiRequest("PATCH", `/api/interventions/${id}`, updates);
     },
     onSuccess: () => {
       toast({
