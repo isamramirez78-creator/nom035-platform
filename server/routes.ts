@@ -456,6 +456,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Interventions routes
+  // Notas de seguimiento de intervenciones
+  app.get("/api/intervention-notes", authenticateCompany, async (req: any, res) => {
+    try {
+      const { interventionId } = req.query;
+      const { db: db2 } = await import("./db.js");
+      const { sql: sql2 } = await import("drizzle-orm");
+      const result = await db2.execute(sql2`
+        SELECT * FROM intervention_notes 
+        WHERE intervention_id = ${parseInt(interventionId as string)}
+        ORDER BY created_at ASC
+      `);
+      res.json(result.rows);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  app.post("/api/intervention-notes", authenticateCompany, async (req: any, res) => {
+    try {
+      const { interventionId, content, author } = req.body;
+      const { db: db2 } = await import("./db.js");
+      const { sql: sql2 } = await import("drizzle-orm");
+      const result = await db2.execute(sql2`
+        INSERT INTO intervention_notes (intervention_id, content, author, created_at)
+        VALUES (${interventionId}, ${content}, ${author || "RRHH"}, NOW())
+        RETURNING *
+      `);
+      res.status(201).json(result.rows[0]);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  // PATCH /api/interventions/:id — actualizar estado de intervención
+  app.patch("/api/interventions/:id", authenticateCompany, async (req: any, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const companyId = req.company?.id;
+      const { status, results, actualEndDate } = req.body;
+      const { db: db2 } = await import("./db.js");
+      const { sql: sql2 } = await import("drizzle-orm");
+      const result = await db2.execute(sql2`
+        UPDATE interventions SET
+          status = COALESCE(${status || null}, status),
+          results = COALESCE(${results || null}, results),
+          actual_end_date = COALESCE(${actualEndDate || null}, actual_end_date),
+          updated_at = NOW()
+        WHERE id = ${id} AND company_id = ${companyId}
+        RETURNING *
+      `);
+      if (!result.rows[0]) return res.status(404).json({ message: "Intervención no encontrada" });
+      res.json(result.rows[0]);
+    } catch (e: any) {
+      res.status(500).json({ message: e?.message || "Error al actualizar" });
+    }
+  });
+
   // GET /api/interventions — lista todas las intervenciones de la empresa
   app.get("/api/interventions", authenticateCompany, async (req: any, res) => {
     try {
@@ -1589,4 +1642,3 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   return httpServer;
 }
-// Wed Jul  8 15:00:56     2026
