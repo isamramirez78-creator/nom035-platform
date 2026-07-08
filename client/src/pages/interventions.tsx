@@ -83,6 +83,31 @@ export default function Interventions() {
 
   const { data: interventions, isLoading } = useQuery<Intervention[]>({
     queryKey: ['/api/interventions', selectedEmployee, filterStatus],
+    queryFn: async () => {
+      const tk = localStorage.getItem("company_token");
+      const res = await fetch("/api/interventions", {
+        headers: tk ? { Authorization: `Bearer ${tk}` } : {},
+      });
+      const data = await res.json();
+      if (!Array.isArray(data)) return [];
+      // Normalizar snake_case a camelCase
+      return data.map((i: any) => ({
+        ...i,
+        employeeId: i.employee_id || i.employeeId,
+        evaluationId: i.evaluation_id || i.evaluationId,
+        type: i.intervention_type || i.type || i.interventionType,
+        interventionType: i.intervention_type || i.interventionType,
+        responsiblePerson: i.responsible_person || i.responsiblePerson,
+        startDate: i.start_date || i.startDate,
+        expectedEndDate: i.expected_end_date || i.expectedEndDate,
+        actualEndDate: i.actual_end_date || i.actualEndDate,
+        followUpRequired: i.follow_up_required || i.followUpRequired,
+        nextReviewDate: i.next_review_date || i.nextReviewDate,
+        createdAt: i.created_at || i.createdAt,
+        nombre: i.nombre || "",
+        apellidos: i.apellidos || i.apellido_paterno || "",
+      }));
+    },
   });
 
   const { data: employees } = useQuery({
