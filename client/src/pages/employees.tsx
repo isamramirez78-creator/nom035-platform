@@ -27,6 +27,7 @@ export default function Employees() {
     mutationFn: async (id: number) => {
       const response = await fetch(`/api/employees/${id}`, {
         method: "DELETE",
+        headers: localStorage.getItem("company_token") ? { Authorization: `Bearer ${localStorage.getItem("company_token")}` } : {},
       });
       if (!response.ok) {
         throw new Error("Error al eliminar empleado");
