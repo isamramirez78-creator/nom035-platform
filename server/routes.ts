@@ -494,12 +494,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (fileName.endsWith(".csv")) {
         // Procesar CSV
-        const content2 = file.data.toString("utf-8").replace(/^﻿/, "");
-        const lines = content2.split(/
-?
-/).filter((l: string) => l.trim());
-        const headers = lines[0].split(",").map((h: string) => h.trim().toLowerCase());
-
+        const content2 = file.data.toString("utf-8");
+        const lines = content2.split("\n").map((l: string) => l.replace(/\r$/, "")).filter((l: string) => l.trim());
         for (let i = 1; i < lines.length; i++) {
           const vals = lines[i].split(",").map((v: string) => v.trim());
           if (vals.every((v: string) => !v)) continue;
