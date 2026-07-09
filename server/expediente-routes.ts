@@ -155,12 +155,19 @@ export function registerExpedienteRoutes(app: Express) {
   });
 
   // ── POST /api/expedientes/documentos — subir archivo ────────────────────────
-  app.post("/api/expedientes/documentos", authenticateCompany, upload.single("file"), async (req: any, res) => {
+  app.post("/api/expedientes/documentos", authenticateCompany, async (req: any, res) => {
     try {
-      if (!req.file) return res.status(400).json({ message: "No se recibió ningún archivo" });
+      const uploadedFile = req.files?.file as any;
+      if (!uploadedFile) return res.status(400).json({ message: "No se recibió ningún archivo" });
 
       const { expedienteId } = req.body;
-      const fileName = req.file.originalname;
+      const fileName = uploadedFile.name;
+
+      const uploadDir = "/tmp/uploads";
+      const fsModule = await import("fs");
+      if (!fsModule.existsSync(uploadDir)) fsModule.mkdirSync(uploadDir, { recursive: true });
+      const safeName = `${Date.now()}-${fileName.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+      await uploadedFile.mv(`${uploadDir}/${safeName}`);
       const fileUrl = `/uploads/${safeName}`;
 
       const result = await db.execute(sql`
