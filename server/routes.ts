@@ -995,7 +995,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 (filteredEvaluations.length / employees.length * 100).toFixed(1) : '0',
               lastEvaluationDate: filteredEvaluations.length > 0 ? 
                 Math.max(...filteredEvaluations.map(evaluation => new Date(evaluation.createdAt).getTime())) : null,
-              pendingEvaluations: Math.max(0, employees.length - filteredEvaluations.length),
+              pendingEvaluations: employees.length - filteredEvaluations.length,
               complianceStatus: employees.length > 0 && (filteredEvaluations.length / employees.length * 100) >= 80 ? 'compliant' : 'non-compliant'
             }
           }
@@ -1518,6 +1518,79 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Register company authentication routes
   registerCompanyRoutes(app);
   
+  // ── Panel Administrativo ──────────────────────────────────────────────────────
+  app.post("/api/admin/login", async (req: any, res) => {
+    try {
+      const { email, password } = req.body;
+      const { db: db2 } = await import("./db.js");
+      const { sql: sql2 } = await import("drizzle-orm");
+      const bcrypt2 = await import("bcrypt");
+      const jwt2 = await import("jsonwebtoken");
+
+      const result = await db2.execute(sql2`
+        SELECT * FROM admin_users WHERE email = ${email} AND is_active = true LIMIT 1
+      `);
+      const admin = result.rows[0] as any;
+      if (!admin) return res.status(401).json({ message: "Credenciales incorrectas" });
+
+      const valid = await bcrypt2.compare(password, admin.password_hash);
+      if (!valid) return res.status(401).json({ message: "Credenciales incorrectas" });
+
+      const token = jwt2.sign({ adminId: admin.id, email: admin.email, role: "admin" },
+        process.env.JWT_SECRET || "secret", { expiresIn: "8h" });
+
+      res.json({ token, admin: { id: admin.id, email: admin.email, nombre: admin.nombre } });
+    } catch (e: any) {
+      console.error("Admin login error:", e);
+      res.status(500).json({ message: "Error en el servidor" });
+    }
+  });
+
+  const authenticateAdmin = async (req: any, res: any, next: any) => {
+    const auth = req.headers.authorization;
+    if (!auth?.startsWith("Bearer ")) return res.status(401).json({ message: "No autorizado" });
+    try {
+      const jwt2 = await import("jsonwebtoken");
+      const decoded = jwt2.verify(auth.split(" ")[1], process.env.JWT_SECRET || "secret") as any;
+      if (decoded.role !== "admin") return res.status(403).json({ message: "Acceso denegado" });
+      req.admin = decoded;
+      next();
+    } catch { res.status(401).json({ message: "Token inválido" }); }
+  };
+
+  app.get("/api/admin/companies", authenticateAdmin, async (req: any, res) => {
+    try {
+      const { db: db2 } = await import("./db.js");
+      const { sql: sql2 } = await import("drizzle-orm");
+      const result = await db2.execute(sql2`
+        SELECT c.*,
+          (SELECT COUNT(*) FROM employees e WHERE e.company_id = c.id) as employee_count,
+          (SELECT COUNT(*) FROM evaluations ev WHERE ev.company_id = c.id AND ev.completed = true) as evaluation_count
+        FROM companies c
+        ORDER BY c.created_at DESC
+      `);
+      res.json(result.rows);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  app.patch("/api/admin/companies/:id", authenticateAdmin, async (req: any, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { is_active, subscription_plan, max_employees } = req.body;
+      const { db: db2 } = await import("./db.js");
+      const { sql: sql2 } = await import("drizzle-orm");
+      const result = await db2.execute(sql2`
+        UPDATE companies SET
+          is_active = COALESCE(${is_active ?? null}, is_active),
+          subscription_plan = COALESCE(${subscription_plan || null}, subscription_plan),
+          max_employees = COALESCE(${max_employees || null}, max_employees)
+        WHERE id = ${id}
+        RETURNING *
+      `);
+      res.json(result.rows[0]);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
   // Register other module routes
   registerDuplicateCheckRoutes(app);
   registerInvitationRoutes(app);
