@@ -152,7 +152,7 @@ export default function CalendarioNOM035() {
                           </span>
                           <p className="text-xs text-slate-400 mt-1">Vence: {fmtDate(ev.fecha_vencimiento)}</p>
                         </div>
-                        {ev.estado !== "al_dia" && (
+                        {true {ev.estado !== "al_dia" && ({ev.estado !== "al_dia" && ( (
                           <Button
                             onClick={() => marcarAlDiaMutation.mutate(ev.id)}
                             disabled={marcarAlDiaMutation.isPending}
