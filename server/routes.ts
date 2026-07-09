@@ -456,130 +456,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Interventions routes
-  // Notas de seguimiento de intervenciones
-  app.get("/api/intervention-notes", authenticateCompany, async (req: any, res) => {
-    try {
-      const { interventionId } = req.query;
-      const { db: db2 } = await import("./db.js");
-      const { sql: sql2 } = await import("drizzle-orm");
-      const result = await db2.execute(sql2`
-        SELECT * FROM intervention_notes 
-        WHERE intervention_id = ${parseInt(interventionId as string)}
-        ORDER BY created_at ASC
-      `);
-      res.json(result.rows);
-    } catch (e: any) { res.status(500).json({ message: e.message }); }
-  });
-
-  app.post("/api/intervention-notes", authenticateCompany, async (req: any, res) => {
-    try {
-      const { interventionId, content, author } = req.body;
-      const { db: db2 } = await import("./db.js");
-      const { sql: sql2 } = await import("drizzle-orm");
-      const result = await db2.execute(sql2`
-        INSERT INTO intervention_notes (intervention_id, content, author, created_at)
-        VALUES (${interventionId}, ${content}, ${author || "RRHH"}, NOW())
-        RETURNING *
-      `);
-      res.status(201).json(result.rows[0]);
-    } catch (e: any) { res.status(500).json({ message: e.message }); }
-  });
-
-  // PATCH /api/interventions/:id — actualizar estado de intervención
-  app.patch("/api/interventions/:id", authenticateCompany, async (req: any, res) => {
-    try {
-      const id = parseInt(req.params.id);
-      const companyId = req.company?.id;
-      const { status, results, actualEndDate } = req.body;
-      const { db: db2 } = await import("./db.js");
-      const { sql: sql2 } = await import("drizzle-orm");
-      const result = await db2.execute(sql2`
-        UPDATE interventions SET
-          status = COALESCE(${status || null}, status),
-          results = COALESCE(${results || null}, results),
-          actual_end_date = COALESCE(${actualEndDate || null}, actual_end_date),
-          updated_at = NOW()
-        WHERE id = ${id} AND company_id = ${companyId}
-        RETURNING *
-      `);
-      if (!result.rows[0]) return res.status(404).json({ message: "Intervención no encontrada" });
-      res.json(result.rows[0]);
-    } catch (e: any) {
-      res.status(500).json({ message: e?.message || "Error al actualizar" });
-    }
-  });
-
-  // GET /api/interventions — lista todas las intervenciones de la empresa
-  app.get("/api/interventions", authenticateCompany, async (req: any, res) => {
-    try {
-      const companyId = req.company?.id;
-      const { employeeId, status } = req.query;
-      const { db: db2 } = await import("./db.js");
-      const { sql: sql2 } = await import("drizzle-orm");
-      const result = await db2.execute(sql2`
-        SELECT i.*, e.nombre, e.apellidos, e.apellido_paterno, e.puesto, e.area
-        FROM interventions i
-        LEFT JOIN employees e ON e.id = i.employee_id
-        WHERE i.company_id = ${companyId}
-        ${employeeId ? sql2`AND i.employee_id = ${parseInt(employeeId as string)}` : sql2``}
-        ${status ? sql2`AND i.status = ${status}` : sql2``}
-        ORDER BY i.created_at DESC
-      `);
-      res.json(result.rows);
-    } catch (error) {
-      console.error("Error fetching interventions:", error);
-      res.status(500).json({ message: "Error fetching interventions" });
-    }
-  });
-
-  app.get("/api/interventions/employee/:employeeId", authenticateCompany, async (req: any, res) => {
+  app.get("/api/interventions/employee/:employeeId", async (req, res) => {
     try {
       const employeeId = parseInt(req.params.employeeId);
-      const companyId = req.company?.id;
-      const { db: db2 } = await import("./db.js");
-      const { sql: sql2 } = await import("drizzle-orm");
-      const result = await db2.execute(sql2`
-        SELECT i.*, e.nombre, e.apellidos, e.puesto, e.area
-        FROM interventions i
-        LEFT JOIN employees e ON e.id = i.employee_id
-        WHERE i.employee_id = ${employeeId} AND i.company_id = ${companyId}
-        ORDER BY i.created_at DESC
-      `);
-      res.json(result.rows);
+      const interventions = await storage.getInterventionsByEmployee(employeeId);
+      res.json(interventions);
     } catch (error) {
       console.error("Error fetching interventions:", error);
       res.status(500).json({ message: "Error fetching interventions" });
     }
   });
 
-  app.post("/api/interventions", authenticateCompany, async (req: any, res) => {
+  app.post("/api/interventions", async (req, res) => {
     try {
-      const body = req.body;
-      const companyId = req.company?.id;
-      const { db: db2 } = await import("./db.js");
-      const { sql: sql2 } = await import("drizzle-orm");
-      const result = await db2.execute(sql2`
-        INSERT INTO interventions
-          (employee_id, company_id, intervention_type, title, description, objective,
-           actions, responsible_person, status, priority, start_date, expected_end_date)
-        VALUES
-          (${parseInt(body.employeeId)}, ${companyId},
-           ${body.interventionType || "counseling"},
-           ${body.title || body.description?.substring(0,100) || "Intervención NOM-035"},
-           ${body.description || ""},
-           ${body.objective || null},
-           ${JSON.stringify(body.actions || [])}::jsonb,
-           ${body.responsiblePerson || "RRHH"},
-           ${body.status || "planned"},
-           ${body.priority || "medium"},
-           ${body.startDate || null},
-           ${body.expectedEndDate || body.endDate || null})
-        RETURNING *
-      `);
-      res.status(201).json(result.rows[0]);
-    } catch (error: any) {
+      const validatedData = insertInterventionSchema.parse(req.body);
+      const intervention = await storage.createIntervention(validatedData);
+      res.status(201).json(intervention);
+    } catch (error) {
       console.error("Error creating intervention:", error);
-      res.status(400).json({ message: error?.message || "Error al crear intervención" });
+      res.status(400).json({ message: "Error creating intervention" });
     }
   });
 
@@ -1100,7 +995,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 (filteredEvaluations.length / employees.length * 100).toFixed(1) : '0',
               lastEvaluationDate: filteredEvaluations.length > 0 ? 
                 Math.max(...filteredEvaluations.map(evaluation => new Date(evaluation.createdAt).getTime())) : null,
-              pendingEvaluations: employees.length - filteredEvaluations.length,
+              pendingEvaluations: Math.max(0, employees.length - filteredEvaluations.length),
               complianceStatus: employees.length > 0 && (filteredEvaluations.length / employees.length * 100) >= 80 ? 'compliant' : 'non-compliant'
             }
           }
