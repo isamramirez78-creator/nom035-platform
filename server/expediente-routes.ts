@@ -161,14 +161,14 @@ export function registerExpedienteRoutes(app: Express) {
 
       const { expedienteId } = req.body;
       const fileName = req.file.originalname;
-      const fileUrl = `/uploads/${req.file.filename}`;
+      const fileUrl = `/uploads/${safeName}`;
 
       const result = await db.execute(sql`
         INSERT INTO expediente_documentos 
           (expediente_id, nombre, tipo, url, tamanio_bytes, uploaded_by)
         VALUES
           (${parseInt(expedienteId)}, ${fileName}, 'evidencia', ${fileUrl},
-           ${req.file.size}, ${req.company.correoElectronico})
+           ${uploadedFile.size || uploadedFile.data?.length || 0}, ${req.company.correoElectronico})
         RETURNING *
       `);
 
@@ -201,14 +201,22 @@ export function registerExpedienteRoutes(app: Express) {
   });
 
   // POST — subir documento normativo
-  app.post("/api/documentos-normativos", authenticateCompany, upload.single("file"), async (req: any, res) => {
+  app.post("/api/documentos-normativos", authenticateCompany, async (req: any, res) => {
     try {
-      if (!req.file) return res.status(400).json({ message: "No se recibió ningún archivo" });
+      const uploadedFile = req.files?.file as any;
+      if (!uploadedFile) return res.status(400).json({ message: "No se recibió ningún archivo" });
 
       const companyId = req.company.id;
       const { tipo } = req.body;
-      const fileName = req.file.originalname;
-      const fileUrl  = `/uploads/${req.file.filename}`;
+      const fileName = uploadedFile.name;
+
+      // Guardar archivo en /tmp/uploads/
+      const uploadDir = "/tmp/uploads";
+      const fsModule = await import("fs");
+      if (!fsModule.existsSync(uploadDir)) fsModule.mkdirSync(uploadDir, { recursive: true });
+      const safeName = `${Date.now()}-${fileName.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+      await uploadedFile.mv(`${uploadDir}/${safeName}`);
+      const fileUrl = `/uploads/${safeName}`;
 
       // Si ya existe una versión, incrementar versión
       const existing = await db.execute(sql`
@@ -222,7 +230,7 @@ export function registerExpedienteRoutes(app: Express) {
           (company_id, tipo, nombre, url, tamanio_bytes, subido_por, version)
         VALUES
           (${companyId}, ${tipo}, ${fileName}, ${fileUrl},
-           ${req.file.size}, ${req.company.correoElectronico}, ${version})
+           ${uploadedFile.size || uploadedFile.data?.length || 0}, ${req.company.correoElectronico}, ${version})
         RETURNING *
       `);
 
