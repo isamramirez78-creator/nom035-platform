@@ -1532,10 +1532,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       `);
       const admin = result.rows[0] as any;
       if (!admin) return res.status(401).json({ message: "Credenciales incorrectas" });
+      const { verifyPassword, generateAdminToken } = await import("./auth.js");
 
-      const valid = await bcrypt2.compare(password, admin.password_hash);
+      const valid = await verifyPassword(password, admin.password_hash);
       if (!valid) return res.status(401).json({ message: "Credenciales incorrectas" });
-
+      const token = generateAdminToken(admin.id, admin.email);
       const token = jwt2.sign({ adminId: admin.id, email: admin.email, role: "admin" },
         process.env.JWT_SECRET || "secret", { expiresIn: "8h" });
 
