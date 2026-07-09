@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useLocation, Link } from "wouter";
 import { Button } from "@/components/ui/button";
 
@@ -13,11 +14,21 @@ export default function Landing() {
     { icon: "fas fa-building", title: "Multi-Centro de Trabajo", desc: "Gestión independiente por sucursal. La NOM-035 aplica por cada centro de trabajo." },
   ];
 
-  const plans = [
-    { name: "Plan Básico", price: "$899", period: "/mes", employees: "1-15 empleados", color: "#1E3A5F", popular: false },
-    { name: "Plan Profesional", price: "$1,899", period: "/mes", employees: "16-50 empleados", color: "#84CC16", popular: true },
-    { name: "Plan Empresarial", price: "$3,499", period: "/mes", employees: "50+ empleados", color: "#1E3A5F", popular: false },
+  const [isYearly, setIsYearly] = useState(false);
+
+  const PLAN_DATA = [
+    { name: "Plan Básico",      monthly: 899,   annual: 9169,  employees: "1-15 empleados",  color: "#1E3A5F", popular: false },
+    { name: "Plan Profesional", monthly: 1899,  annual: 19369, employees: "16-50 empleados", color: "#84CC16", popular: true  },
+    { name: "Plan Empresarial", monthly: 3499,  annual: 35689, employees: "50+ empleados",   color: "#1E3A5F", popular: false },
   ];
+
+  const fmt = (n: number) => "$" + n.toLocaleString("es-MX");
+  const plans = PLAN_DATA.map(p => ({
+    ...p,
+    price:   isYearly ? fmt(p.annual)  : fmt(p.monthly),
+    period:  isYearly ? "/año"         : "/mes",
+    savings: isYearly ? `Ahorras ${fmt(p.monthly * 2)} al año` : null,
+  }));
 
   return (
     <div style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
@@ -165,6 +176,19 @@ export default function Landing() {
             <h2 style={{ color: "#1E3A5F", fontSize: 28, fontWeight: 700, marginBottom: 8 }}>Planes Empresariales</h2>
             <p style={{ color: "#64748B", fontSize: 15 }}>Soluciones escalables para organizaciones de todos los tamaños</p>
           </div>
+          {/* Toggle mensual / anual */}
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:14, marginBottom:28 }}>
+            <span style={{ fontSize:14, fontWeight: isYearly?400:700, color: isYearly?"#94A3B8":"#1E3A5F" }}>Mensual</span>
+            <button onClick={() => setIsYearly(!isYearly)}
+              style={{ width:50, height:26, borderRadius:99, border:"none", cursor:"pointer", background:isYearly?"#84CC16":"#CBD5E1", position:"relative", transition:"background 0.2s" }}>
+              <div style={{ position:"absolute", top:3, width:20, height:20, borderRadius:"50%", background:"white", transition:"left 0.2s", left:isYearly?"calc(100% - 23px)":"3px", boxShadow:"0 1px 3px rgba(0,0,0,0.2)" }}></div>
+            </button>
+            <span style={{ fontSize:14, fontWeight: isYearly?700:400, color: isYearly?"#1E3A5F":"#94A3B8" }}>
+              Anual{" "}
+              <span style={{ background:"#ECFCCB", color:"#15803D", borderRadius:99, padding:"2px 8px", fontSize:11, fontWeight:700, marginLeft:4 }}>Ahorra 17%</span>
+            </span>
+          </div>
+
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 16 }}>
             {plans.map((plan) => (
               <div key={plan.name} style={{
@@ -182,6 +206,7 @@ export default function Landing() {
                 <div style={{ display: "flex", alignItems: "baseline", gap: 4, marginBottom: 4 }}>
                   <span style={{ color: plan.popular ? "#84CC16" : "#1E3A5F", fontSize: 32, fontWeight: 800 }}>{plan.price}</span>
                   <span style={{ color: "#64748B", fontSize: 13 }}>{plan.period}</span>
+                  {(plan as any).savings && <div style={{ marginTop:4 }}><span style={{ background:"#ECFCCB", color:"#15803D", borderRadius:99, padding:"2px 8px", fontSize:11, fontWeight:600 }}>{(plan as any).savings}</span></div>}
                 </div>
                 <p style={{ color: "#64748B", fontSize: 13, marginBottom: 20 }}>{plan.employees}</p>
                 <Button onClick={() => setLocation("/company-register")}
