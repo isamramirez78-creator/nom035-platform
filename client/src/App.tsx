@@ -20,6 +20,8 @@ const Onboarding          = lazy(() => import("@/pages/onboarding"));
 const EmployeeImport      = lazy(() => import("@/pages/employee-import"));
 const Interventions       = lazy(() => import("@/pages/interventions"));
 const CompanyProfile      = lazy(() => import("@/pages/company-profile"));
+const AdminLogin = lazy(() => import("@/pages/admin-login"));
+const AdminDashboard = lazy(() => import("@/pages/admin-dashboard"));
 const DenunciaPublica     = lazy(() => import("@/pages/denuncia-publica"));
 const Notifications       = lazy(() => import("@/pages/notifications"));
 const EmployeeDetail      = lazy(() => import("@/pages/employee-detail"));
@@ -109,6 +111,8 @@ function App() {
           <Route path="/cuestionario/:token"  component={QuestionnaireRoute} />
           <Route path="/denuncia/:token" component={DenunciaRoute} />
           <Route path="/denuncia" component={DenunciaRoute} />
+      <Route path="/admin">{() => <Suspense fallback={<Loading />}><AdminLogin /></Suspense>}</Route>
+      <Route path="/admin/dashboard">{() => { const t = localStorage.getItem("admin_token"); if(!t){window.location.replace("/admin");return null;} return <Suspense fallback={<Loading />}><AdminDashboard /></Suspense>;}}</Route>
           <Route path="/dashboard"            component={DashboardRoute} />
           <Route path="/onboarding"           component={OnboardingRoute} />
           <Route path="/employees"            component={EmployeesRoute} />
