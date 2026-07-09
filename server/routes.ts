@@ -1551,7 +1551,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!auth?.startsWith("Bearer ")) return res.status(401).json({ message: "No autorizado" });
     try {
       const jwt2 = await import("jsonwebtoken");
-      const decoded = jwt2.verify(auth.split(" ")[1], process.env.JWT_SECRET || "secret") as any;
+      const jwtLib = jwt2.default || jwt2;
+      const decoded = jwtLib.verify(auth.split(" ")[1], process.env.JWT_SECRET || "secret") as any;
       if (decoded.role !== "admin") return res.status(403).json({ message: "Acceso denegado" });
       req.admin = decoded;
       next();
