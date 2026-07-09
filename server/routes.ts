@@ -1,4 +1,6 @@
 import type { Express } from "express";
+import jwt from "jsonwebtoken";
+import bcrypt from "bcrypt";
 import { db } from "./db";
 import { sql } from "drizzle-orm";
 import { createServer, type Server } from "http";
@@ -1550,9 +1552,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const auth = req.headers.authorization;
     if (!auth?.startsWith("Bearer ")) return res.status(401).json({ message: "No autorizado" });
     try {
-      const jwt2 = await import("jsonwebtoken");
-      const jwtLib = jwt2.default || jwt2;
-      const decoded = jwtLib.verify(auth.split(" ")[1], process.env.JWT_SECRET || "secret") as any;
+      const decoded = jwt.verify(auth.split(" ")[1], process.env.JWT_SECRET || "secret") as any;
       if (decoded.role !== "admin") return res.status(403).json({ message: "Acceso denegado" });
       req.admin = decoded;
       next();
