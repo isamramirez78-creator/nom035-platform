@@ -1550,10 +1550,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const auth = req.headers.authorization;
     if (!auth?.startsWith("Bearer ")) return res.status(401).json({ message: "No autorizado" });
     try {
-      const JWT_SECRET2 = process.env.JWT_SECRET || "nom035-default-secret-change-in-production";
-      const { default: jwtMod } = await import("jsonwebtoken");
-      const decoded = jwtMod.verify(auth.split(" ")[1], JWT_SECRET2) as any;
-      if (decoded.role !== "admin") return res.status(403).json({ message: "Acceso denegado" });
+      const { verifyAdminToken } = await import("./auth.js");
+      const decoded = verifyAdminToken(auth.split(" ")[1]);
+      if (!decoded) return res.status(401).json({ message: "Token inválido" });
       req.admin = decoded;
       next();
     } catch { res.status(401).json({ message: "Token inválido" }); }

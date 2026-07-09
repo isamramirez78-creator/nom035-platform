@@ -41,6 +41,18 @@ export function verifyToken(token: string): { companyId: number; email: string }
   }
 }
 
+export function generateAdminToken(adminId: number, email: string): string {
+  return jwt.sign({ adminId, email, role: "admin" }, JWT_SECRET, { expiresIn: "8h" });
+}
+
+export function verifyAdminToken(token: string): { adminId: number; email: string } | null {
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET) as any;
+    if (decoded.role !== "admin") return null;
+    return { adminId: decoded.adminId, email: decoded.email };
+  } catch { return null; }
+}
+
 export async function authenticateCompany(req: AuthenticatedRequest, res: Response, next: NextFunction) {
   try {
     const authHeader = req.headers.authorization;
