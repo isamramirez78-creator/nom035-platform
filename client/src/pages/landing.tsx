@@ -48,6 +48,10 @@ export default function Landing() {
             </div>
           </div>
           <div style={{ display: "flex", gap: 10 }}>
+            <Button variant="outline" onClick={() => setLocation("/plans")}
+              style={{ borderColor: "rgba(255,255,255,0.3)", color: "white", background: "transparent", fontSize: 13 }}>
+              Planes y precios
+            </Button>
             <Button variant="outline" onClick={() => setLocation("/login")}
               style={{ borderColor: "rgba(255,255,255,0.3)", color: "white", background: "transparent", fontSize: 13 }}>
               Iniciar sesión
