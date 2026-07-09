@@ -1537,8 +1537,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const valid = await verifyPassword(password, admin.password_hash);
       if (!valid) return res.status(401).json({ message: "Credenciales incorrectas" });
       const token = generateAdminToken(admin.id, admin.email);
-      const token = jwt2.sign({ adminId: admin.id, email: admin.email, role: "admin" },
-        process.env.JWT_SECRET || "secret", { expiresIn: "8h" });
 
       res.json({ token, admin: { id: admin.id, email: admin.email, nombre: admin.nombre } });
     } catch (e: any) {
