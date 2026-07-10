@@ -59,22 +59,38 @@ app.use((req, res, next) => {
       const PLAN_NAMES: Record<string, string> = { basic:"Básico", professional:"Profesional", enterprise:"Empresarial" };
       const mpRes = await fetch("https://api.mercadopago.com/checkout/preferences", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${process.env.MP_ACCESS_TOKEN}` },
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${process.env.MP_ACCESS_TOKEN}`,
+          "X-Idempotency-Key": `nom035-${plan}-${periodo}-${Date.now()}`,
+        },
         body: JSON.stringify({
-          items: [{ title: `NOM-035 — Plan ${PLAN_NAMES[plan]} (${periodo === "annual" ? "Anual" : "Mensual"})`, quantity: 1, unit_price: precio, currency_id: "MXN" }],
+          items: [{
+            id: plan,
+            title: `NOM-035 Platform — Plan ${PLAN_NAMES[plan]}`,
+            description: `Suscripción ${periodo === "annual" ? "anual" : "mensual"} a la plataforma NOM-035-STPS-2018`,
+            quantity: 1,
+            unit_price: precio,
+            currency_id: "MXN",
+            category_id: "services",
+          }],
           back_urls: {
             success: "https://nom035-platform-production.up.railway.app/pago-exitoso",
             failure: "https://nom035-platform-production.up.railway.app/pago-fallido",
             pending: "https://nom035-platform-production.up.railway.app/pago-pendiente",
           },
           auto_return: "approved",
-          notification_url: "https://nom035-platform-production.up.railway.app/api/mercadopago/webhook",
+          statement_descriptor: "NOM035 PLATFORM",
+          external_reference: `${plan}-${periodo}-${Date.now()}`,
           metadata: { plan, periodo },
         }),
       });
       const mpData = await mpRes.json();
-      if (!mpRes.ok) return res.status(500).json({ message: "Error Mercado Pago", detail: mpData });
-      res.json({ preferenceId: mpData.id, initPoint: mpData.init_point });
+      if (!mpRes.ok) {
+        console.error("MP Error:", JSON.stringify(mpData));
+        return res.status(500).json({ message: "Error Mercado Pago", detail: mpData });
+      }
+      res.json({ preferenceId: mpData.id, initPoint: mpData.init_point, sandboxInitPoint: mpData.sandbox_init_point });
     } catch (e: any) { res.status(500).json({ message: e.message }); }
   });
 
@@ -102,4 +118,3 @@ app.use((req, res, next) => {
     log(`serving on port ${port}`);
   });
 })();
-// mp2 Thu Jul  9 18:31:06     2026
