@@ -1515,131 +1515,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Post-registro: asignar trial_ends_at automáticamente
+  app.use("/api/companies/register", async (req: any, res: any, next: any) => {
+    if (req.method !== "POST") return next();
+    // Interceptar respuesta para agregar trial_ends_at
+    const originalJson = res.json.bind(res);
+    res.json = async (data: any) => {
+      if (res.statusCode === 201 && data?.company?.id) {
+        try {
+          const { db: db2 } = await import("./db.js");
+          const { sql: sql2 } = await import("drizzle-orm");
+          await db2.execute(sql2`
+            UPDATE companies SET
+              trial_ends_at = NOW() + INTERVAL '14 days',
+              subscription_status = 'trial',
+              subscription_plan = 'trial'
+            WHERE id = ${data.company.id}
+          `);
+        } catch (e) { console.error("Trial setup error:", e); }
+      }
+      return originalJson(data);
+    };
+    next();
+  });
+
   // Register company authentication routes
   registerCompanyRoutes(app);
   
-  // ── Mercado Pago ──────────────────────────────────────────────────────────────
-  app.post("/api/mercadopago/crear-preferencia", async (req: any, res) => {
-    try {
-      const { plan, periodo, companyData } = req.body;
-
-      const PRECIOS: Record<string, Record<string, number>> = {
-        basic:        { monthly: 899,   annual: 9169  },
-        professional: { monthly: 1899,  annual: 19369 },
-        enterprise:   { monthly: 3499,  annual: 35689 },
-      };
-
-      const precio = PRECIOS[plan]?.[periodo === "annual" ? "annual" : "monthly"];
-      if (!precio) return res.status(400).json({ message: "Plan o período inválido" });
-
-      const PLAN_NAMES: Record<string, string> = {
-        basic: "Básico", professional: "Profesional", enterprise: "Empresarial"
-      };
-
-      const mpRes = await fetch("https://api.mercadopago.com/checkout/preferences", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${process.env.MP_ACCESS_TOKEN}`,
-        },
-        body: JSON.stringify({
-          items: [{
-            title: `NOM-035 Platform — Plan ${PLAN_NAMES[plan]} (${periodo === "annual" ? "Anual" : "Mensual"})`,
-            quantity: 1,
-            unit_price: precio,
-            currency_id: "MXN",
-          }],
-          payer: {
-            email: companyData?.email || "",
-            name: companyData?.razonSocial || "",
-          },
-          back_urls: {
-            success: `${process.env.APP_URL || "https://nom035-platform-production.up.railway.app"}/pago-exitoso`,
-            failure: `${process.env.APP_URL || "https://nom035-platform-production.up.railway.app"}/pago-fallido`,
-            pending: `${process.env.APP_URL || "https://nom035-platform-production.up.railway.app"}/pago-pendiente`,
-          },
-          auto_return: "approved",
-          notification_url: `${process.env.APP_URL || "https://nom035-platform-production.up.railway.app"}/api/mercadopago/webhook`,
-          metadata: {
-            plan,
-            periodo,
-            companyEmail: companyData?.email,
-            companyName: companyData?.razonSocial,
-          },
-          payment_methods: {
-            excluded_payment_types: [],
-            installments: 1,
-          },
-        }),
-      });
-
-      const mpData = await mpRes.json();
-      if (!mpRes.ok) {
-        console.error("MP error:", mpData);
-        return res.status(500).json({ message: "Error al crear preferencia de pago" });
-      }
-
-      res.json({
-        preferenceId: mpData.id,
-        initPoint: mpData.init_point,
-        sandboxInitPoint: mpData.sandbox_init_point,
-      });
-    } catch (e: any) {
-      console.error("MP crear preferencia error:", e);
-      res.status(500).json({ message: e.message });
-    }
-  });
-
-  // Webhook de Mercado Pago — recibe notificaciones de pago
-  app.post("/api/mercadopago/webhook", async (req: any, res) => {
-    try {
-      const { type, data } = req.body;
-      console.log("MP Webhook:", type, data?.id);
-
-      if (type === "payment" && data?.id) {
-        // Consultar el pago para obtener estado y metadata
-        const payRes = await fetch(`https://api.mercadopago.com/v1/payments/${data.id}`, {
-          headers: { "Authorization": `Bearer ${process.env.MP_ACCESS_TOKEN}` },
-        });
-        const payment = await payRes.json();
-
-        if (payment.status === "approved") {
-          const metadata = payment.metadata || {};
-          const companyEmail = metadata.company_email;
-          const plan = metadata.plan || "basic";
-          const periodo = metadata.periodo || "monthly";
-
-          if (companyEmail) {
-            const { db: db2 } = await import("./db.js");
-            const { sql: sql2 } = await import("drizzle-orm");
-
-            // Calcular fecha de vencimiento
-            const vencimiento = new Date();
-            if (periodo === "annual") { vencimiento.setFullYear(vencimiento.getFullYear() + 1); }
-            else { vencimiento.setMonth(vencimiento.getMonth() + 1); }
-
-            // Activar empresa y actualizar plan
-            await db2.execute(sql2`
-              UPDATE companies SET
-                is_active = true,
-                subscription_plan = ${plan},
-                subscription_status = 'active',
-                subscription_end_date = ${vencimiento.toISOString()}
-              WHERE correo_electronico = ${companyEmail}
-            `);
-
-            console.log(`✅ Empresa activada: ${companyEmail} — Plan ${plan}`);
-          }
-        }
-      }
-
-      res.status(200).json({ received: true });
-    } catch (e: any) {
-      console.error("MP webhook error:", e);
-      res.status(200).json({ received: true }); // Siempre responder 200 a MP
-    }
-  });
-
   // Register other module routes
   registerDuplicateCheckRoutes(app);
   registerInvitationRoutes(app);
@@ -1659,4 +1561,3 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   return httpServer;
 }
-// mp Thu Jul  9 18:18:44     2026

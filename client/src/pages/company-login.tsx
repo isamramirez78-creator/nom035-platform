@@ -35,17 +35,31 @@ export default function CompanyLogin() {
     onSuccess: (data) => {
       if (data.token) {
         localStorage.setItem("company_token", data.token);
+        if (data.trialDaysLeft !== null && data.trialDaysLeft !== undefined) {
+          localStorage.setItem("trial_days_left", String(data.trialDaysLeft));
+        }
+        if (data.subscriptionStatus) {
+          localStorage.setItem("subscription_status", data.subscriptionStatus);
+        }
       }
       toast({
         title: "Inicio de sesión exitoso",
         description: "Bienvenido al sistema de gestión NOM-035",
       });
-      // Pequeño delay para que el toast se vea, luego recarga completa
       setTimeout(() => {
         window.location.replace("/dashboard");
       }, 500);
     },
-    onError: (error: Error) => {
+    onError: (error: any) => {
+      if (error.code === "TRIAL_EXPIRED" || error.redirectTo === "/plans") {
+        toast({
+          title: "Período de prueba expirado",
+          description: "Elige un plan para continuar usando la plataforma.",
+          variant: "destructive",
+        });
+        setTimeout(() => window.location.replace("/plans"), 2000);
+        return;
+      }
       toast({
         title: "Error de autenticación",
         description: error.message || "Credenciales incorrectas",
