@@ -116,6 +116,8 @@ function App() {
           <Route path="/employees/:id"        component={EmployeeDetailRoute} />
           <Route path="/reports"              component={ReportsRoute} />
           <Route path="/invitations"          component={InvitationsRoute} />
+          <Route path="/pago-exitoso">{() => <Suspense fallback={<Loading />}><PagoExitoso /></Suspense>}</Route>
+          <Route path="/pago-fallido">{() => <Suspense fallback={<Loading />}><PagoFallido /></Suspense>}</Route>
           <Route path="/compliance-dashboard" component={CumplimientoRoute} />
           <Route path="/compliance"           component={CumplimientoRoute} />
           <Route path="/expedientes"          component={ExpedientesRoute} />
