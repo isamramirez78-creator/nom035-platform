@@ -45,57 +45,18 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  // Mercado Pago — registrar ANTES de serveStatic para evitar que React lo intercepte
-  app.post("/api/mercadopago/crear-preferencia", async (req: any, res: any) => {
+// Stripe — pagos con tarjeta
+  app.post("/api/stripe/crear-sesion", async (req: any, res: any) => {
     try {
       const { plan, periodo } = req.body;
-      const PRECIOS: Record<string, Record<string, number>> = {
-        basic:        { monthly: 899,   annual: 9169  },
-        professional: { monthly: 1899,  annual: 19369 },
-        enterprise:   { monthly: 3499,  annual: 35689 },
-      };
+      const PRECIOS: any = { basic:{monthly:89900,annual:916900}, professional:{monthly:189900,annual:1936900}, enterprise:{monthly:349900,annual:3568900} };
       const precio = PRECIOS[plan]?.[periodo === "annual" ? "annual" : "monthly"];
-      if (!precio) return res.status(400).json({ message: "Plan o período inválido" });
-      const PLAN_NAMES: Record<string, string> = { basic:"Básico", professional:"Profesional", enterprise:"Empresarial" };
-      const mpRes = await fetch("https://api.mercadopago.com/checkout/preferences", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${process.env.MP_ACCESS_TOKEN}`,
-          "X-Idempotency-Key": `nom035-${plan}-${periodo}-${Date.now()}`,
-        },
-        body: JSON.stringify({
-          items: [{
-            id: plan,
-            title: `NOM-035 Platform — Plan ${PLAN_NAMES[plan]}`,
-            description: `Suscripción ${periodo === "annual" ? "anual" : "mensual"} a la plataforma NOM-035-STPS-2018`,
-            quantity: 1,
-            unit_price: precio,
-            currency_id: "MXN",
-            category_id: "services",
-          }],
-          back_urls: {
-            success: "https://nom035-platform-production.up.railway.app/pago-exitoso",
-            failure: "https://nom035-platform-production.up.railway.app/pago-fallido",
-            pending: "https://nom035-platform-production.up.railway.app/pago-pendiente",
-          },
-          auto_return: "approved",
-          statement_descriptor: "NOM035 PLATFORM",
-          external_reference: `${plan}-${periodo}-${Date.now()}`,
-          metadata: { plan, periodo },
-        }),
-      });
-      const mpData = await mpRes.json();
-      if (!mpRes.ok) {
-        console.error("MP Error:", JSON.stringify(mpData));
-        return res.status(500).json({ message: "Error Mercado Pago", detail: mpData });
-      }
-      res.json({ preferenceId: mpData.id, initPoint: mpData.init_point, sandboxInitPoint: mpData.sandbox_init_point });
+      if (!precio) return res.status(400).json({ message: "Plan invalido" });
+      const Stripe = await import("stripe");
+      const stripe = new (Stripe.default || Stripe as any)(process.env.STRIPE_SECRET_KEY || "", { apiVersion: "2024-06-20" as any });
+      const session = await (stripe as any).checkout.sessions.create({ payment_method_types: ["card"], line_items: [{ price_data: { currency: "mxn", product_data: { name: "NOM-035 Plan " + plan }, unit_amount: precio }, quantity: 1 }], mode: "payment", success_url: "https://nom035-platform-production.up.railway.app/pago-exitoso", cancel_url: "https://nom035-platform-production.up.railway.app/pago-fallido", metadata: { plan, periodo } });
+      res.json({ sessionId: session.id, url: session.url });
     } catch (e: any) { res.status(500).json({ message: e.message }); }
-  });
-
-  app.post("/api/mercadopago/webhook", async (req: any, res: any) => {
-    res.status(200).json({ received: true });
   });
 
   const server = await registerRoutes(app);
