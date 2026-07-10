@@ -185,13 +185,16 @@ export default function SubscriptionPlans() {
 
   const subscribeMutation = useMutation({
     mutationFn: async (planId: string) => {
-      const res = await apiRequest("POST", "/api/mercadopago/create-subscription", { planId });
+      const res = await fetch("/api/stripe/crear-sesion", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan: planId, periodo: isYearly ? "annual" : "monthly" }),
+      });
       return res.json();
     },
     onSuccess: (data) => {
-      if (data.checkoutUrl) {
-        // Redirige a Mercado Pago para autorizar el cobro recurrente
-        window.location.href = data.checkoutUrl;
+      if (data.url) {
+        window.location.href = data.url;
       } else {
         toast({
           title: "No se pudo iniciar el pago",
