@@ -45,6 +45,43 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // Mercado Pago — registrar ANTES de serveStatic para evitar que React lo intercepte
+  app.post("/api/mercadopago/crear-preferencia", async (req: any, res: any) => {
+    try {
+      const { plan, periodo } = req.body;
+      const PRECIOS: Record<string, Record<string, number>> = {
+        basic:        { monthly: 899,   annual: 9169  },
+        professional: { monthly: 1899,  annual: 19369 },
+        enterprise:   { monthly: 3499,  annual: 35689 },
+      };
+      const precio = PRECIOS[plan]?.[periodo === "annual" ? "annual" : "monthly"];
+      if (!precio) return res.status(400).json({ message: "Plan o período inválido" });
+      const PLAN_NAMES: Record<string, string> = { basic:"Básico", professional:"Profesional", enterprise:"Empresarial" };
+      const mpRes = await fetch("https://api.mercadopago.com/checkout/preferences", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${process.env.MP_ACCESS_TOKEN}` },
+        body: JSON.stringify({
+          items: [{ title: `NOM-035 — Plan ${PLAN_NAMES[plan]} (${periodo === "annual" ? "Anual" : "Mensual"})`, quantity: 1, unit_price: precio, currency_id: "MXN" }],
+          back_urls: {
+            success: "https://nom035-platform-production.up.railway.app/pago-exitoso",
+            failure: "https://nom035-platform-production.up.railway.app/pago-fallido",
+            pending: "https://nom035-platform-production.up.railway.app/pago-pendiente",
+          },
+          auto_return: "approved",
+          notification_url: "https://nom035-platform-production.up.railway.app/api/mercadopago/webhook",
+          metadata: { plan, periodo },
+        }),
+      });
+      const mpData = await mpRes.json();
+      if (!mpRes.ok) return res.status(500).json({ message: "Error Mercado Pago", detail: mpData });
+      res.json({ preferenceId: mpData.id, initPoint: mpData.init_point });
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  app.post("/api/mercadopago/webhook", async (req: any, res: any) => {
+    res.status(200).json({ received: true });
+  });
+
   const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
