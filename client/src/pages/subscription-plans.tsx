@@ -179,6 +179,8 @@ const plans = {
 
 export default function SubscriptionPlans() {
   const [isYearly, setIsYearly] = useState(false);
+  const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
+  const { toast } = useToast();
   const currentPlans = isYearly ? plans.yearly : plans.monthly;
   const { toast } = useToast();
 
