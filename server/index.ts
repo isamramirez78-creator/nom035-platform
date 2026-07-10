@@ -49,7 +49,7 @@ app.use((req, res, next) => {
   app.post("/api/stripe/crear-sesion", async (req: any, res: any) => {
     try {
       const rawPlan = req.body.plan || ""; const periodo = req.body.periodo || (rawPlan.includes("yearly") ? "annual" : "monthly"); const plan = rawPlan.replace(/-monthly|-yearly|-annual/g, "");
-      const PRECIOS: any = { basic:{monthly:89900,annual:916900}, professional:{monthly:189900,annual:1936900}, enterprise:{monthly:349900,annual:3568900} };
+      const PRECIOS: any = { starter:{monthly:89900,annual:916900}, professional:{monthly:189900,annual:1936900}, enterprise:{monthly:349900,annual:3568900} };
       const precio = PRECIOS[plan]?.[periodo === "annual" ? "annual" : "monthly"];
       if (!precio) return res.status(400).json({ message: "Plan invalido" });
       const Stripe = await import("stripe");
