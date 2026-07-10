@@ -135,6 +135,34 @@ export function registerCompanyRoutes(app: Express) {
         return res.status(403).json({ message: "Cuenta desactivada" });
       }
 
+      // Verificar estado de trial/suscripción desde la BD
+      let trialDaysLeft = null;
+      let subscriptionStatus = "trial";
+      try {
+        const { db: dbTrial } = await import("./db.js");
+        const { sql: sqlTrial } = await import("drizzle-orm");
+        const trialResult = await dbTrial.execute(sqlTrial`
+          SELECT trial_ends_at, subscription_status, subscription_end_date 
+          FROM companies WHERE id = ${company.id}
+        `);
+        const trialData = trialResult.rows[0] as any;
+        if (trialData) {
+          subscriptionStatus = trialData.subscription_status || "trial";
+          const now = new Date();
+          if (trialData.trial_ends_at && subscriptionStatus === "trial") {
+            const trialEnd = new Date(trialData.trial_ends_at);
+            if (trialEnd < now) {
+              return res.status(403).json({ 
+                message: "Tu período de prueba ha expirado. Por favor elige un plan.",
+                code: "TRIAL_EXPIRED",
+                redirectTo: "/plans"
+              });
+            }
+            trialDaysLeft = Math.ceil((trialEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+          }
+        }
+      } catch (e) { console.error("Trial check error:", e); }
+
       // Generate token
       const token = generateToken(company.id, company.correoElectronico);
 
@@ -144,6 +172,8 @@ export function registerCompanyRoutes(app: Express) {
       res.json({
         company: companyResponse,
         token,
+        trialDaysLeft,
+        subscriptionStatus,
         message: "Inicio de sesión exitoso"
       });
     } catch (error) {
