@@ -182,7 +182,6 @@ export default function SubscriptionPlans() {
   const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
   const { toast } = useToast();
   const currentPlans = isYearly ? plans.yearly : plans.monthly;
-  const { toast } = useToast();
 
   const subscribeMutation = useMutation({
     mutationFn: async (planId: string) => {
