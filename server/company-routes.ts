@@ -284,4 +284,4 @@ export function registerCompanyRoutes(app: Express) {
       res.status(500).json({ message: "Error fetching subscription status" });
     }
   });
-}
+}// trial Fri Jul 10 18:17:32     2026
