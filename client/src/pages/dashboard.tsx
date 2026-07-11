@@ -294,6 +294,12 @@ export default function Dashboard() {
 
   return (
     <div>
+      {parseInt(localStorage.getItem("trial_days_left") || "-1") >= 0 && localStorage.getItem("subscription_status") === "trial" && (
+        <div style={{background: parseInt(localStorage.getItem("trial_days_left") || "99") <= 3 ? "#FEF2F2" : parseInt(localStorage.getItem("trial_days_left") || "99") <= 7 ? "#FFFBEB" : "#EFF6FF", border: "1px solid #BFDBFE", borderRadius: 12, padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16}}>
+          <p style={{fontWeight: 600, fontSize: 14, margin: 0, color: "#1E40AF"}}>Tu prueba gratuita vence en {localStorage.getItem("trial_days_left")} días</p>
+          <a href="/plans" style={{background: "#1E3A5F", color: "white", borderRadius: 8, padding: "8px 16px", fontSize: 13, fontWeight: 600, textDecoration: "none"}}>Ver planes</a>
+        </div>
+      )}
       <div className="mb-8">
         <h2 className="text-2xl font-bold text-slate-900 mb-2">Panel Principal</h2>
         <p className="text-slate-600">Gestiona las evaluaciones de riesgos psicosociales conforme a la NOM-035-STPS-2018</p>
