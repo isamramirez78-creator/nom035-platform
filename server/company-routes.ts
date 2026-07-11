@@ -3,6 +3,8 @@ import { hashPassword, verifyPassword, generateToken, authenticateCompany } from
 import { companyStorage } from "./company-storage";
 import { insertCompanySchema } from "@shared/schema";
 import { z } from "zod";
+import { db } from "./db";
+import { sql } from "drizzle-orm";
 
 export function registerCompanyRoutes(app: Express) {
   // Company registration
@@ -139,9 +141,7 @@ export function registerCompanyRoutes(app: Express) {
       let trialDaysLeft = null;
       let subscriptionStatus = "trial";
       try {
-        const { db: dbTrial } = await import("./db.js");
-        const { sql: sqlTrial } = await import("drizzle-orm");
-        const trialResult = await dbTrial.execute(sqlTrial`
+        const trialResult = await db.execute(sql`
           SELECT trial_ends_at, subscription_status, subscription_end_date 
           FROM companies WHERE id = ${company.id}
         `);
@@ -284,4 +284,4 @@ export function registerCompanyRoutes(app: Express) {
       res.status(500).json({ message: "Error fetching subscription status" });
     }
   });
-}// trial Fri Jul 10 18:17:32     2026
+}
