@@ -124,7 +124,7 @@ export default function AdminDashboard() {
       <div style={{ maxWidth: 1280, margin: "0 auto", padding: "2rem" }}>
         {/* Tabs */}
         <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
-          {[["empresas","🏢 Empresas"],["facturacion","🧾 Facturación"]].map(([id,label]) => (
+          {[["empresas","🏢 Empresas "],["facturacion","🧾 Facturación"]].map(([id,label]) => (
             <button key={id} onClick={() => setTab(id as any)}
               style={{ padding: "8px 20px", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 14, fontWeight: 600,
                 background: tab === id ? "#84CC16" : "rgba(255,255,255,0.05)", color: tab === id ? "#1E3A5F" : "#94A3B8" }}>
@@ -150,7 +150,7 @@ export default function AdminDashboard() {
 
         {tab === "facturacion" ? (
           <FacturacionTab companies={filtered} />
-        ) : (<div>
+        ) : (<>
         {/* Filtros */}
         <div style={{ display: "flex", gap: 12, marginBottom: 20 }}>
           <input value={search} onChange={e => setSearch(e.target.value)}
@@ -215,8 +215,9 @@ export default function AdminDashboard() {
             </tbody>
           </table>
         </div>
-        </div>)}
-        </div>)}
+      </div>
+
+        </>)}
       {/* Modal gestionar empresa */}
       {selected && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50 }}>
@@ -260,4 +261,3 @@ export default function AdminDashboard() {
     </div>
   );
 }
-// force Tue Jul 14 13:40:11     2026
