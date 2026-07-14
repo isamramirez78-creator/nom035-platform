@@ -1515,30 +1515,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Post-registro: asignar trial_ends_at automáticamente
-  app.use("/api/companies/register", async (req: any, res: any, next: any) => {
-    if (req.method !== "POST") return next();
-    // Interceptar respuesta para agregar trial_ends_at
-    const originalJson = res.json.bind(res);
-    res.json = async (data: any) => {
-      if (res.statusCode === 201 && data?.company?.id) {
-        try {
-          const { db: db2 } = await import("./db.js");
-          const { sql: sql2 } = await import("drizzle-orm");
-          await db2.execute(sql2`
-            UPDATE companies SET
-              trial_ends_at = NOW() + INTERVAL '14 days',
-              subscription_status = 'trial',
-              subscription_plan = 'trial'
-            WHERE id = ${data.company.id}
-          `);
-        } catch (e) { console.error("Trial setup error:", e); }
-      }
-      return originalJson(data);
-    };
-    next();
-  });
-
   // Register company authentication routes
   registerCompanyRoutes(app);
   

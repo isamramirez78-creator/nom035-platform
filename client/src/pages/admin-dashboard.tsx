@@ -17,12 +17,59 @@ const PLAN_COLORS: Record<string, string> = {
 
 function logout() { localStorage.removeItem("admin_token"); window.location.replace("/admin"); }
 
+function FacturacionTab({ companies }: { companies: any[] }) {
+  const pendientes = companies.filter(c => !c.is_admin);
+  return (
+    <div>
+      <h3 style={{ color: "white", fontSize: 16, fontWeight: 700, marginBottom: 16 }}>
+        Facturación pendiente — {pendientes.filter(c => !c.datos_fiscales_completos).length} empresas sin datos fiscales
+      </h3>
+      <div style={{ background: "#1E293B", borderRadius: 16, overflow: "hidden", border: "1px solid #334155" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead>
+            <tr style={{ background: "#0F172A" }}>
+              {["Empresa","RFC","Régimen","CP Fiscal","Datos Fiscales","Plan","Acción"].map(h2 => (
+                <th key={h2} style={{ padding: "12px 16px", textAlign: "left", color: "#64748B", fontSize: 11, fontWeight: 600 }}>{h2.toUpperCase()}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {pendientes.length === 0 ? (
+              <tr><td colSpan={7} style={{ padding: "2rem", textAlign: "center", color: "#64748B" }}>No hay empresas</td></tr>
+            ) : pendientes.map((c: any, i: number) => (
+              <tr key={c.id} style={{ borderTop: "1px solid #334155", background: i % 2 === 0 ? "transparent" : "rgba(255,255,255,0.02)" }}>
+                <td style={{ padding: "12px 16px", color: "white", fontSize: 13 }}>{c.razon_social || c.correo_electronico}</td>
+                <td style={{ padding: "12px 16px", color: "#94A3B8", fontSize: 12 }}>{c.rfc || "—"}</td>
+                <td style={{ padding: "12px 16px", color: "#94A3B8", fontSize: 12 }}>{c.regimen_fiscal || "—"}</td>
+                <td style={{ padding: "12px 16px", color: "#94A3B8", fontSize: 12 }}>{c.codigo_postal_fiscal || "—"}</td>
+                <td style={{ padding: "12px 16px" }}>
+                  <span style={{ background: c.datos_fiscales_completos ? "#10B98120" : "#EF444420", color: c.datos_fiscales_completos ? "#10B981" : "#EF4444", borderRadius: 99, padding: "2px 10px", fontSize: 11, fontWeight: 600 }}>
+                    {c.datos_fiscales_completos ? "✅ Completos" : "⚠️ Pendiente"}
+                  </span>
+                </td>
+                <td style={{ padding: "12px 16px", color: "#94A3B8", fontSize: 12 }}>{c.subscription_plan || "trial"}</td>
+                <td style={{ padding: "12px 16px" }}>
+                  <button style={{ background: "#1E3A5F", color: "#84CC16", border: "none", borderRadius: 6, padding: "4px 12px", fontSize: 11, cursor: "pointer", fontWeight: 600 }}
+                    onClick={() => alert(`CFDI para ${c.correo_electronico} — Integración con PAC próximamente`)}>
+                    Emitir CFDI
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 export default function AdminDashboard() {
   const { toast } = useToast();
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
   const [filterPlan, setFilterPlan] = useState("all");
   const [selected, setSelected] = useState<any>(null);
+  const [tab, setTab] = useState<"empresas"|"facturacion">("empresas");
 
   const { data: companies, isLoading } = useQuery<any[]>({
     queryKey: ["/api/admin/companies"],
@@ -75,6 +122,17 @@ export default function AdminDashboard() {
       </header>
 
       <div style={{ maxWidth: 1280, margin: "0 auto", padding: "2rem" }}>
+        {/* Tabs */}
+        <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
+          {[["empresas","🏢 Empresas"],["facturacion","🧾 Facturación"]].map(([id,label]) => (
+            <button key={id} onClick={() => setTab(id as any)}
+              style={{ padding: "8px 20px", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 14, fontWeight: 600,
+                background: tab === id ? "#84CC16" : "rgba(255,255,255,0.05)", color: tab === id ? "#1E3A5F" : "#94A3B8" }}>
+              {label}
+            </button>
+          ))}
+        </div>
+
         {/* KPIs */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 16, marginBottom: 24 }}>
           {[
@@ -90,6 +148,9 @@ export default function AdminDashboard() {
           ))}
         </div>
 
+        {tab === "facturacion" ? (
+          <FacturacionTab companies={filtered} />
+        ) : (<>
         {/* Filtros */}
         <div style={{ display: "flex", gap: 12, marginBottom: 20 }}>
           <input value={search} onChange={e => setSearch(e.target.value)}
@@ -156,6 +217,7 @@ export default function AdminDashboard() {
         </div>
       </div>
 
+        </>)}
       {/* Modal gestionar empresa */}
       {selected && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50 }}>

@@ -1,3 +1,4 @@
+import DatosFiscales from "./datos-fiscales";
 import { useQuery } from "@tanstack/react-query";
 
 export default function CompanyProfile() {
@@ -44,6 +45,7 @@ export default function CompanyProfile() {
             <div key={item.label} className="p-3 rounded-lg" style={{ background: "#F8FAFC", border: "0.5px solid #E2E8F0" }}>
               <p className="text-xs font-medium text-slate-500 mb-1">{item.label}</p>
               <p className="text-sm font-semibold" style={{ color: "#1E3A5F" }}>{String(item.value)}</p>
+      <DatosFiscales />
             </div>
           ))}
         </div>
