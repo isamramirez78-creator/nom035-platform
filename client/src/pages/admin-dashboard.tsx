@@ -215,6 +215,8 @@ export default function AdminDashboard() {
             </tbody>
           </table>
         </div>
+      </div>
+
         </>)}
       {/* Modal gestionar empresa */}
       {selected && (
@@ -259,4 +261,3 @@ export default function AdminDashboard() {
     </div>
   );
 }
-// rebuild Tue Jul 14 12:00:02     2026
