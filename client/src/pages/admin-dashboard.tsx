@@ -2,18 +2,13 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const at = () => localStorage.getItem("admin_token");
 const h = () => ({ "Content-Type": "application/json", ...(at() ? { Authorization: `Bearer ${at()}` } : {}) });
 
-const PLAN_LABELS: Record<string, string> = {
-  trial: "Prueba", basic: "Básico", professional: "Profesional", enterprise: "Enterprise"
-};
-const PLAN_COLORS: Record<string, string> = {
-  trial: "#64748B", basic: "#3B82F6", professional: "#8B5CF6", enterprise: "#F59E0B"
-};
+const PLAN_LABELS: Record<string, string> = { trial: "Prueba", basic: "Básico", starter: "Básico", professional: "Profesional", enterprise: "Empresarial" };
+const PLAN_COLORS: Record<string, string> = { trial: "#64748B", basic: "#3B82F6", starter: "#3B82F6", professional: "#8B5CF6", enterprise: "#F59E0B" };
 
 function logout() { localStorage.removeItem("admin_token"); window.location.replace("/admin"); }
 
@@ -22,14 +17,14 @@ function FacturacionTab({ companies }: { companies: any[] }) {
   return (
     <div>
       <h3 style={{ color: "white", fontSize: 16, fontWeight: 700, marginBottom: 16 }}>
-        Facturación pendiente — {pendientes.filter(c => !c.datos_fiscales_completos).length} empresas sin datos fiscales
+        Facturación — {pendientes.filter(c => !c.datos_fiscales_completos).length} empresas sin datos fiscales
       </h3>
       <div style={{ background: "#1E293B", borderRadius: 16, overflow: "hidden", border: "1px solid #334155" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr style={{ background: "#0F172A" }}>
-              {["Empresa","RFC","Régimen","CP Fiscal","Datos Fiscales","Plan","Acción"].map(h2 => (
-                <th key={h2} style={{ padding: "12px 16px", textAlign: "left", color: "#64748B", fontSize: 11, fontWeight: 600 }}>{h2.toUpperCase()}</th>
+              {["Empresa", "RFC", "Régimen", "CP", "Datos Fiscales", "Plan", "Acción"].map(col => (
+                <th key={col} style={{ padding: "12px 16px", textAlign: "left", color: "#64748B", fontSize: 11, fontWeight: 600 }}>{col.toUpperCase()}</th>
               ))}
             </tr>
           </thead>
@@ -47,10 +42,10 @@ function FacturacionTab({ companies }: { companies: any[] }) {
                     {c.datos_fiscales_completos ? "✅ Completos" : "⚠️ Pendiente"}
                   </span>
                 </td>
-                <td style={{ padding: "12px 16px", color: "#94A3B8", fontSize: 12 }}>{c.subscription_plan || "trial"}</td>
+                <td style={{ padding: "12px 16px", color: "#94A3B8", fontSize: 12 }}>{PLAN_LABELS[c.subscription_plan] || c.subscription_plan || "trial"}</td>
                 <td style={{ padding: "12px 16px" }}>
                   <button style={{ background: "#1E3A5F", color: "#84CC16", border: "none", borderRadius: 6, padding: "4px 12px", fontSize: 11, cursor: "pointer", fontWeight: 600 }}
-                    onClick={() => alert(`CFDI para ${c.correo_electronico} — Integración con PAC próximamente`)}>
+                    onClick={() => alert("Integración con PAC próximamente")}>
                     Emitir CFDI
                   </button>
                 </td>
@@ -69,7 +64,7 @@ export default function AdminDashboard() {
   const [search, setSearch] = useState("");
   const [filterPlan, setFilterPlan] = useState("all");
   const [selected, setSelected] = useState<any>(null);
-  const [tab, setTab] = useState<"empresas"|"facturacion">("empresas");
+  const [tab, setTab] = useState<"empresas" | "facturacion">("empresas");
 
   const { data: companies, isLoading } = useQuery<any[]>({
     queryKey: ["/api/admin/companies"],
@@ -101,12 +96,11 @@ export default function AdminDashboard() {
     total: filtered.length,
     activas: filtered.filter(c => c.is_active).length,
     inactivas: filtered.filter(c => !c.is_active).length,
-    trial: filtered.filter(c => c.subscription_plan === "trial").length,
+    trial: filtered.filter(c => c.subscription_plan === "trial" || !c.subscription_plan).length,
   };
 
   return (
     <div style={{ minHeight: "100vh", background: "#0F172A", fontFamily: "Inter,sans-serif" }}>
-      {/* Header */}
       <header style={{ background: "#1E293B", borderBottom: "1px solid #334155", padding: "0 2rem" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", height: 60, maxWidth: 1280, margin: "0 auto" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -122,17 +116,6 @@ export default function AdminDashboard() {
       </header>
 
       <div style={{ maxWidth: 1280, margin: "0 auto", padding: "2rem" }}>
-        {/* Tabs */}
-        <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
-          {[["empresas","🏢 Empresas "],["facturacion","🧾 Facturación"]].map(([id,label]) => (
-            <button key={id} onClick={() => setTab(id as any)}
-              style={{ padding: "8px 20px", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 14, fontWeight: 600,
-                background: tab === id ? "#84CC16" : "rgba(255,255,255,0.05)", color: tab === id ? "#1E3A5F" : "#94A3B8" }}>
-              {label}
-            </button>
-          ))}
-        </div>
-
         {/* KPIs */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 16, marginBottom: 24 }}>
           {[
@@ -148,89 +131,106 @@ export default function AdminDashboard() {
           ))}
         </div>
 
+        {/* Tabs */}
+        <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
+          {([["empresas", "🏢 Empresas"], ["facturacion", "🧾 Facturación"]] as [string, string][]).map(([id, label]) => (
+            <button key={id} onClick={() => setTab(id as "empresas" | "facturacion")}
+              style={{ padding: "8px 20px", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 14, fontWeight: 600,
+                background: tab === id ? "#84CC16" : "rgba(255,255,255,0.05)", color: tab === id ? "#1E3A5F" : "#94A3B8" }}>
+              {label}
+            </button>
+          ))}
+        </div>
+
         {tab === "facturacion" ? (
           <FacturacionTab companies={filtered} />
-        ) : (<>
-        {/* Filtros */}
-        <div style={{ display: "flex", gap: 12, marginBottom: 20 }}>
-          <input value={search} onChange={e => setSearch(e.target.value)}
-            placeholder="Buscar empresa o correo..."
-            style={{ flex: 1, background: "#1E293B", border: "1px solid #334155", borderRadius: 8, padding: "8px 12px", color: "white", fontSize: 13, outline: "none" }} />
-          <Select value={filterPlan} onValueChange={setFilterPlan}>
-            <SelectTrigger style={{ width: 180, background: "#1E293B", border: "1px solid #334155", color: "white" }}>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos los planes</SelectItem>
-              {Object.entries(PLAN_LABELS).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}
-            </SelectContent>
-          </Select>
-        </div>
+        ) : (
+          <div>
+            {/* Filtros */}
+            <div style={{ display: "flex", gap: 12, marginBottom: 20 }}>
+              <input value={search} onChange={e => setSearch(e.target.value)}
+                placeholder="Buscar empresa o correo..."
+                style={{ flex: 1, background: "#1E293B", border: "1px solid #334155", borderRadius: 8, padding: "8px 12px", color: "white", fontSize: 13, outline: "none" }} />
+              <Select value={filterPlan} onValueChange={setFilterPlan}>
+                <SelectTrigger style={{ width: 180, background: "#1E293B", border: "1px solid #334155", color: "white" }}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos los planes</SelectItem>
+                  {Object.entries(PLAN_LABELS).filter(([k]) => !["basic"].includes(k)).map(([k, v]) => (
+                    <SelectItem key={k} value={k}>{v}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-        {/* Tabla */}
-        <div style={{ background: "#1E293B", borderRadius: 16, overflow: "hidden", border: "1px solid #334155" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead>
-              <tr style={{ background: "#0F172A" }}>
-                {["Empresa","Correo","Plan","Empleados","Evaluaciones","Estado","Registro","Acciones"].map(h2 => (
-                  <th key={h2} style={{ padding: "12px 16px", textAlign: "left", color: "#64748B", fontSize: 11, fontWeight: 600, letterSpacing: 1 }}>{h2.toUpperCase()}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {isLoading ? (
-                <tr><td colSpan={8} style={{ padding: "2rem", textAlign: "center", color: "#64748B" }}>Cargando...</td></tr>
-              ) : filtered.length === 0 ? (
-                <tr><td colSpan={8} style={{ padding: "2rem", textAlign: "center", color: "#64748B" }}>No hay empresas registradas</td></tr>
-              ) : filtered.map((c: any, i: number) => (
-                <tr key={c.id} style={{ borderTop: "1px solid #334155", background: i % 2 === 0 ? "transparent" : "rgba(255,255,255,0.02)" }}>
-                  <td style={{ padding: "12px 16px" }}>
-                    <div style={{ color: "white", fontWeight: 600, fontSize: 13 }}>{c.razon_social || "—"}</div>
-                    <div style={{ color: "#64748B", fontSize: 11 }}>RFC: {c.rfc || "—"}</div>
-                  </td>
-                  <td style={{ padding: "12px 16px", color: "#94A3B8", fontSize: 12 }}>{c.correo_electronico}</td>
-                  <td style={{ padding: "12px 16px" }}>
-                    <span style={{ background: PLAN_COLORS[c.subscription_plan] + "20", color: PLAN_COLORS[c.subscription_plan], borderRadius: 99, padding: "2px 10px", fontSize: 11, fontWeight: 600 }}>
-                      {PLAN_LABELS[c.subscription_plan] || c.subscription_plan}
-                    </span>
-                  </td>
-                  <td style={{ padding: "12px 16px", color: "#94A3B8", fontSize: 13, textAlign: "center" }}>{c.employee_count || 0}</td>
-                  <td style={{ padding: "12px 16px", color: "#94A3B8", fontSize: 13, textAlign: "center" }}>{c.evaluation_count || 0}</td>
-                  <td style={{ padding: "12px 16px" }}>
-                    <span style={{ background: c.is_active ? "#10B98120" : "#EF444420", color: c.is_active ? "#10B981" : "#EF4444", borderRadius: 99, padding: "2px 10px", fontSize: 11, fontWeight: 600 }}>
-                      {c.is_active ? "Activa" : "Inactiva"}
-                    </span>
-                  </td>
-                  <td style={{ padding: "12px 16px", color: "#64748B", fontSize: 11 }}>
-                    {c.created_at ? new Date(c.created_at).toLocaleDateString("es-MX") : "—"}
-                  </td>
-                  <td style={{ padding: "12px 16px" }}>
-                    <button onClick={() => setSelected(c)}
-                      style={{ background: "#1E3A5F", color: "#84CC16", border: "none", borderRadius: 6, padding: "4px 12px", fontSize: 11, cursor: "pointer", fontWeight: 600 }}>
-                      Gestionar
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+            {/* Tabla */}
+            <div style={{ background: "#1E293B", borderRadius: 16, overflow: "hidden", border: "1px solid #334155" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead>
+                  <tr style={{ background: "#0F172A" }}>
+                    {["Empresa", "Correo", "Plan", "Empleados", "Evaluaciones", "Estado", "Registro", "Acciones"].map(col => (
+                      <th key={col} style={{ padding: "12px 16px", textAlign: "left", color: "#64748B", fontSize: 11, fontWeight: 600 }}>{col.toUpperCase()}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {isLoading ? (
+                    <tr><td colSpan={8} style={{ padding: "2rem", textAlign: "center", color: "#64748B" }}>Cargando...</td></tr>
+                  ) : filtered.length === 0 ? (
+                    <tr><td colSpan={8} style={{ padding: "2rem", textAlign: "center", color: "#64748B" }}>No hay empresas registradas</td></tr>
+                  ) : filtered.map((c: any, i: number) => (
+                    <tr key={c.id} style={{ borderTop: "1px solid #334155", background: i % 2 === 0 ? "transparent" : "rgba(255,255,255,0.02)" }}>
+                      <td style={{ padding: "12px 16px" }}>
+                        <div style={{ color: "white", fontWeight: 600, fontSize: 13 }}>{c.razon_social || "—"}</div>
+                        <div style={{ color: "#64748B", fontSize: 11 }}>RFC: {c.rfc || "—"}</div>
+                      </td>
+                      <td style={{ padding: "12px 16px", color: "#94A3B8", fontSize: 12 }}>{c.correo_electronico}</td>
+                      <td style={{ padding: "12px 16px" }}>
+                        <span style={{ background: (PLAN_COLORS[c.subscription_plan] || "#64748B") + "20", color: PLAN_COLORS[c.subscription_plan] || "#64748B", borderRadius: 99, padding: "2px 10px", fontSize: 11, fontWeight: 600 }}>
+                          {PLAN_LABELS[c.subscription_plan] || c.subscription_plan || "Prueba"}
+                        </span>
+                      </td>
+                      <td style={{ padding: "12px 16px", color: "#94A3B8", fontSize: 13, textAlign: "center" }}>{c.employee_count || 0}</td>
+                      <td style={{ padding: "12px 16px", color: "#94A3B8", fontSize: 13, textAlign: "center" }}>{c.evaluation_count || 0}</td>
+                      <td style={{ padding: "12px 16px" }}>
+                        <span style={{ background: c.is_active ? "#10B98120" : "#EF444420", color: c.is_active ? "#10B981" : "#EF4444", borderRadius: 99, padding: "2px 10px", fontSize: 11, fontWeight: 600 }}>
+                          {c.is_active ? "Activa" : "Inactiva"}
+                        </span>
+                      </td>
+                      <td style={{ padding: "12px 16px", color: "#64748B", fontSize: 11 }}>
+                        {c.created_at ? new Date(c.created_at).toLocaleDateString("es-MX") : "—"}
+                      </td>
+                      <td style={{ padding: "12px 16px" }}>
+                        <button onClick={() => setSelected(c)}
+                          style={{ background: "#1E3A5F", color: "#84CC16", border: "none", borderRadius: 6, padding: "4px 12px", fontSize: 11, cursor: "pointer", fontWeight: 600 }}>
+                          Gestionar
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </div>
 
-        </>)}
       {/* Modal gestionar empresa */}
       {selected && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50 }}>
           <div style={{ background: "#1E293B", borderRadius: 20, padding: "2rem", width: "100%", maxWidth: 480, border: "1px solid #334155" }}>
             <h2 style={{ color: "white", fontSize: 18, fontWeight: 700, marginBottom: 4 }}>{selected.razon_social}</h2>
             <p style={{ color: "#64748B", fontSize: 13, marginBottom: 20 }}>{selected.correo_electronico}</p>
-
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               <div>
                 <label style={{ color: "#94A3B8", fontSize: 12, fontWeight: 600, display: "block", marginBottom: 6 }}>PLAN</label>
-                <select defaultValue={selected.subscription_plan} id="plan-select"
+                <select defaultValue={selected.subscription_plan || "trial"} id="plan-select"
                   style={{ width: "100%", background: "#0F172A", border: "1px solid #334155", borderRadius: 8, padding: "8px 12px", color: "white", fontSize: 13 }}>
-                  {Object.entries(PLAN_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                  <SelectItem value="trial">Prueba</SelectItem>
+                  {Object.entries(PLAN_LABELS).filter(([k]) => k !== "trial" && k !== "basic").map(([k, v]) => (
+                    <option key={k} value={k}>{v}</option>
+                  ))}
                 </select>
               </div>
               <div>
@@ -239,7 +239,6 @@ export default function AdminDashboard() {
                   style={{ width: "100%", background: "#0F172A", border: "1px solid #334155", borderRadius: 8, padding: "8px 12px", color: "white", fontSize: 13 }} />
               </div>
             </div>
-
             <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
               <Button onClick={() => setSelected(null)} variant="outline" style={{ flex: 1, borderColor: "#334155", color: "#94A3B8" }}>Cancelar</Button>
               <Button onClick={() => updateMutation.mutate({ id: selected.id, updates: { is_active: !selected.is_active } })}
