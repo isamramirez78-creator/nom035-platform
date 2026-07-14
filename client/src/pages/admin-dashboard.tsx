@@ -150,7 +150,7 @@ export default function AdminDashboard() {
 
         {tab === "facturacion" ? (
           <FacturacionTab companies={filtered} />
-        ) : (<>
+        ) : (<div>
         {/* Filtros */}
         <div style={{ display: "flex", gap: 12, marginBottom: 20 }}>
           <input value={search} onChange={e => setSearch(e.target.value)}
@@ -215,9 +215,8 @@ export default function AdminDashboard() {
             </tbody>
           </table>
         </div>
-      </div>
-
-        </>)}
+        </div>)}
+        </div>)}
       {/* Modal gestionar empresa */}
       {selected && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50 }}>
