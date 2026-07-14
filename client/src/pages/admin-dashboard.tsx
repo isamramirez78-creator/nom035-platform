@@ -215,8 +215,6 @@ export default function AdminDashboard() {
             </tbody>
           </table>
         </div>
-      </div>
-
         </>)}
       {/* Modal gestionar empresa */}
       {selected && (
