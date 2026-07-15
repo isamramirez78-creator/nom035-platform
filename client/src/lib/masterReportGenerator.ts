@@ -269,6 +269,8 @@ export async function generateEmployeeReport(employee: any, evaluation: any, com
     ['CURP', employee?.curp||'—'],
     ['Correo electrónico', employee?.email||'—'],
   ];
+  const filaRows = Math.ceil(filas.length/2);
+  pg.ensure(filaRows * 8 + 10);
   filas.forEach(([l,v],i)=>{
     const col=i%2, row=Math.floor(i/2);
     const x=col===0?pg.x+3:pg.x+95, y=pg.y+row*8;
@@ -281,9 +283,10 @@ export async function generateEmployeeReport(employee: any, evaluation: any, com
       pg.txt(String(v).substring(0,30),x+33,y+1,[30,58,95],7.5);
     }
   });
-  pg.y += Math.ceil(filas.length/2)*8+6;
+  pg.y += filaRows * 8 + 6;
 
   // Resultado
+  pg.ensure(70);
   pg.sectionHeader('RESULTADO DE LA EVALUACIÓN');
   pg.fillRect(pg.x,pg.y,pg.w,28,LIGHT_BG);
   pg.fillRect(pg.x,pg.y,3,28,riskColor);
@@ -297,6 +300,7 @@ export async function generateEmployeeReport(employee: any, evaluation: any, com
   doc.setTextColor(...riskColor);
   doc.text(`${score} / 288 pts`, pg.x+9, pg.y+25);
   pg.y += 32;
+  pg.ensure(20);
   pg.kv('Cuestionario', evaluation?.questionnaireType==='guia3'?'Guía III (≥50 trabajadores)':'Guía II (16-50 trabajadores)');
   pg.kv('Fecha evaluación', evaluation?.completedAt||evaluation?.completed_at
     ? new Date(evaluation.completedAt||evaluation.completed_at).toLocaleDateString('es-MX') : '—');
@@ -305,6 +309,7 @@ export async function generateEmployeeReport(employee: any, evaluation: any, com
   // Dominios
   const domains: any[] = evaluation?.domainScores||evaluation?.domain_scores||[];
   if(domains.length>0){
+    pg.ensure(domains.length * 8 + 20);
     pg.sectionHeader('PUNTAJES POR DOMINIO');
     tableHeader(pg,['Dominio','Puntaje','Máximo','%','Nivel'],[88,20,20,18,36],pg.x);
     domains.forEach((d:any,i:number)=>{
@@ -328,7 +333,7 @@ export async function generateEmployeeReport(employee: any, evaluation: any, com
     "alto":["Iniciar intervención organizacional inmediata — caso prioritario.","Canalizar con médico o psicólogo de la empresa (Numeral 5.6).","Revisar urgentemente condiciones específicas del puesto de trabajo.","Abrir expediente de seguimiento y programar citas periódicas.","Notificar a Recursos Humanos y al responsable de la comisión."],
     "muy-alto":["ATENCIÓN URGENTE: intervención inmediata requerida.","Canalizar prioritariamente a servicios médicos especializados.","Evaluar cambio temporal de funciones o área de trabajo.","Notificar formalmente a dirección de la empresa.","Expediente de seguimiento con citas semanales mínimo.","Documentar todas las acciones (cumplimiento normativo NOM-035).","Considerar evaluación psicológica especializada (Numeral 5.6)."],
   };
-  if(pg.y>230){ pg.newPage(); }
+  pg.ensure(40);
   pg.sectionHeader('RECOMENDACIONES', riskColor);
   const recs=RECS[riskLevel]||RECS['medio'];
   recs.forEach((r,i)=>{
