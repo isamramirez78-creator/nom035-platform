@@ -185,30 +185,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Evaluation routes
-  app.get("/api/evaluations", authenticateCompany, async (req: any, res) => {
+  app.get("/api/evaluations", async (req, res) => {
     try {
-      const companyId = req.company?.id;
-      const { db: db2 } = await import("./db.js");
-      const { sql: sql2 } = await import("drizzle-orm");
-      const result = await db2.execute(sql2`
-        SELECT e.*, emp.nombre, emp.apellidos, emp.apellido_paterno, emp.puesto, emp.area
-        FROM evaluations e
-        LEFT JOIN employees emp ON emp.id = e.employee_id
-        WHERE e.company_id = ${companyId}
-        ORDER BY e.created_at DESC
-      `);
-      res.json(result.rows);
+      const evaluations = await storage.getAllEvaluations();
+      res.json(evaluations);
     } catch (error) {
       console.error("Error fetching evaluations:", error);
       res.status(500).json({ message: "Error fetching evaluations" });
     }
   });
 
-  app.get("/api/evaluations/employee/:employeeId", async (req, res) => {
+  app.get("/api/evaluations/employee/:employeeId", authenticateCompany, async (req: any, res) => {
     try {
       const employeeId = parseInt(req.params.employeeId);
-      const evaluations = await storage.getEvaluationsByEmployee(employeeId);
-      res.json(evaluations);
+      const companyId = req.company?.id;
+      const { db: db2 } = await import("./db.js");
+      const { sql: sql2 } = await import("drizzle-orm");
+      const result = await db2.execute(sql2`SELECT * FROM evaluations WHERE employee_id = ${employeeId} AND company_id = ${companyId} ORDER BY created_at DESC`);
+      res.json(result.rows);
     } catch (error) {
       res.status(500).json({ message: "Error fetching employee evaluations" });
     }
@@ -929,7 +923,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Error al importar empleados" });
     }
   });
-  app.get("/api/reports", async (req, res) => {
+  app.get("/api/reports", authenticateCompany, async (req: any, res) => {
     try {
       // Return empty array for now - in production this would fetch saved reports
       res.json([]);
@@ -1019,9 +1013,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Company profile alias
-  app.get("/api/companies/profile", async (req, res) => {
+  app.get("/api/companies/profile", authenticateCompany, async (req: any, res) => {
     try {
-      const company = await storage.getCompanyById(1);
+      const companyId = req.company?.id;
+      const company = await storage.getCompanyById(companyId);
       res.json(company);
     } catch (error) {
       res.status(500).json({ message: "Error fetching company profile" });
