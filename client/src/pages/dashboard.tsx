@@ -26,7 +26,7 @@ export default function Dashboard() {
     queryKey: ["/api/evaluations"],
     select: (data: any[]) => data
       .filter(evaluation => evaluation.completed)
-      .sort((a, b) => new Date(b.completedAt || b.created_at).getTime() - new Date(a.completedAt || a.created_at).getTime())
+      .sort((a, b) => new Date(b.completed_at || b.completedAt || b.created_at).getTime() - new Date(a.completed_at || a.completedAt || a.created_at).getTime())
       .slice(0, 5)
   });
 
@@ -128,7 +128,7 @@ export default function Dashboard() {
       doc.setFont('helvetica', 'normal');
       yPos += 8;
       
-      doc.text(`Puntuación General: ${evaluation.overallScore || 'No calculada'}`, 25, yPos);
+      doc.text(`Puntuación General: ${evaluation.overall_score || evaluation.overallScore || 'No calculada'}`, 25, yPos);
       yPos += 20;
       
       // Domain Scores Section
@@ -221,7 +221,7 @@ export default function Dashboard() {
       'guia1': 'Guía I (46 preguntas)',
       'guia2': 'Guía II (71 preguntas)',
       'guia3': 'Guía III (96 preguntas)',
-      'traumatic': 'Eventos Traumáticos (9 preguntas)'
+      'traumatic': 'Eventos Traumáticos (9 preguntas)', 'traumatic_events': 'Guía I - Eventos Traumáticos Severos'
     };
     return types[type as keyof typeof types] || type;
   };
@@ -458,7 +458,7 @@ export default function Dashboard() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900">{employee?.area}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
-                        {evaluation.completedAt || evaluation.created_at ? new Date(evaluation.completedAt || evaluation.created_at).toLocaleDateString('es-ES') : '-'}
+                        {evaluation.completed_at || evaluation.completedAt || evaluation.created_at ? new Date(evaluation.completed_at || evaluation.completedAt || evaluation.created_at).toLocaleDateString('es-ES') : '-'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={getRiskLevelClass(evaluation.riskLevel || evaluation.risk_level)}>
