@@ -120,10 +120,10 @@ export default function Dashboard() {
         'muy-alto': [239, 68, 68]
       };
       
-      const riskColor = riskColors[evaluation.riskLevel as keyof typeof riskColors] || [0, 0, 0];
+      const riskColor = riskColors[evaluation.riskLevel || evaluation.risk_level as keyof typeof riskColors] || [0, 0, 0];
       doc.setTextColor(...riskColor);
       doc.setFont('helvetica', 'bold');
-      doc.text(`Nivel de Riesgo: ${getRiskLevelText(evaluation.riskLevel).toUpperCase()}`, 25, yPos);
+      doc.text(`Nivel de Riesgo: ${getRiskLevelText(evaluation.riskLevel || evaluation.risk_level).toUpperCase()}`, 25, yPos);
       doc.setTextColor(0, 0, 0);
       doc.setFont('helvetica', 'normal');
       yPos += 8;
@@ -172,7 +172,7 @@ export default function Dashboard() {
         yPos += 25;
         
         doc.setFontSize(10);
-        const defaultRecommendations = getDefaultRecommendations(evaluation.riskLevel);
+        const defaultRecommendations = getDefaultRecommendations(evaluation.riskLevel || evaluation.risk_level);
         defaultRecommendations.forEach((rec: string, index: number) => {
           doc.text(`${index + 1}. ${rec}`, 25, yPos);
           yPos += 6;
@@ -461,8 +461,8 @@ export default function Dashboard() {
                         {evaluation.completedAt ? new Date(evaluation.completedAt).toLocaleDateString('es-ES') : '-'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={getRiskLevelClass(evaluation.riskLevel)}>
-                          {getRiskLevelText(evaluation.riskLevel)}
+                        <span className={getRiskLevelClass(evaluation.riskLevel || evaluation.risk_level)}>
+                          {getRiskLevelText(evaluation.riskLevel || evaluation.risk_level)}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
