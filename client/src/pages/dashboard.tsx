@@ -87,7 +87,7 @@ export default function Dashboard() {
       
       doc.setFontSize(11);
       doc.setFont('helvetica', 'normal');
-      doc.text(`Nombre: ${employee.nombre} ${employee.apellidos}`, 25, yPos);
+      doc.text(`Nombre: ${employee.nombre} ${employee.apellidos || employee.apellido_paterno || ""}`, 25, yPos);
       yPos += 8;
       doc.text(`Puesto: ${employee.puesto}`, 25, yPos);
       yPos += 8;
@@ -186,7 +186,7 @@ export default function Dashboard() {
       doc.text(`Reporte generado automáticamente - ${new Date().toLocaleString('es-MX')}`, 20, 285);
       
       // Download
-      const fileName = `reporte-individual-${employee.nombre.replace(/\s+/g, '-')}-${new Date().toISOString().split('T')[0]}.pdf`;
+      const fileName = `reporte-individual-${((employee.nombre || "") + " " + (employee.apellidos || employee.apellido_paterno || "")).replace(/\s+/g, '-')}-${new Date().toISOString().split('T')[0]}.pdf`;
       doc.save(fileName);
     }).catch((error) => {
       console.error('Error loading jsPDF:', error);
@@ -452,7 +452,7 @@ export default function Dashboard() {
                     <tr key={evaluation.id}>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm font-medium text-slate-900">
-                          {employee ? `${employee.nombre} ${employee.apellidos}` : 'Empleado no encontrado'}
+                          {employee ? `${employee.nombre} ${employee.apellidos || employee.apellido_paterno || ""}` : 'Empleado no encontrado'}
                         </div>
                         <div className="text-sm text-slate-500">{employee?.puesto}</div>
                       </td>
