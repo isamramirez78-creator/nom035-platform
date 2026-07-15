@@ -108,7 +108,7 @@ export default function Dashboard() {
       doc.setFont('helvetica', 'normal');
       doc.text(`Tipo de Cuestionario: ${getQuestionnaireTypeName(evaluation.questionnaireType || evaluation.questionnaire_type)}`, 25, yPos);
       yPos += 8;
-      doc.text(`Fecha de Evaluación: ${new Date(evaluation.createdAt).toLocaleDateString('es-MX')}`, 25, yPos);
+      doc.text(`Fecha de Evaluación: ${new Date((evaluation.completed_at || evaluation.created_at || "").replace(" ", "T")).toLocaleDateString('es-MX')}`, 25, yPos);
       yPos += 8;
       
       // Risk Level with color
