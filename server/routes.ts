@@ -73,10 +73,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }
 
   // Employee routes
-  app.get("/api/employees", async (req, res) => {
+  app.get("/api/employees", authenticateCompany, async (req: any, res) => {
     try {
-      const employees = await storage.getAllEmployees();
-      res.json(employees);
+      const companyId = req.company?.id;
+      const { db: db2 } = await import("./db.js");
+      const { sql: sql2 } = await import("drizzle-orm");
+      const result = await db2.execute(sql2`
+        SELECT * FROM employees WHERE company_id = ${companyId} ORDER BY created_at DESC
+      `);
+      res.json(result.rows);
     } catch (error) {
       res.status(500).json({ message: "Error fetching employees" });
     }
@@ -422,13 +427,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Analytics and stats
-  app.get("/api/stats", async (req, res) => {
+  app.get("/api/stats", authenticateCompany, async (req: any, res) => {
     try {
-      const stats = await storage.getEvaluationStats();
-      res.json(stats);
-    } catch (error) {
+      const companyId = req.company?.id;
+      const { db: db2 } = await import("./db.js");
+      const { sql: sql2 } = await import("drizzle-orm");
+      const empResult = await db2.execute(sql2`SELECT COUNT(*) as count FROM employees WHERE company_id = ${companyId}`);
+      const evalResult = await db2.execute(sql2`SELECT COUNT(*) as count FROM evaluations WHERE company_id = ${companyId} AND completed = true`);
+      const totalEmp = parseInt((empResult.rows[0] as any).count || "0");
+      const totalEval = parseInt((evalResult.rows[0] as any).count || "0");
+      res.json({
+        totalEmployees: totalEmp,
+        evaluationsCompleted: totalEval,
+        pendingEvaluations: Math.max(0, totalEmp - totalEval),
+        coveragePercentage: totalEmp > 0 ? Math.round(totalEval / totalEmp * 100) : 0,
+      });
+    } catch (error: any) {
       console.error("Stats error:", error);
-      res.status(500).json({ message: "Error fetching statistics", error: error.message });
+      res.status(500).json({ message: "Error fetching statistics" });
     }
   });
 
