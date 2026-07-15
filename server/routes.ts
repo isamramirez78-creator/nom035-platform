@@ -73,13 +73,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }
 
   // Employee routes
-  app.get("/api/employees", async (req, res) => {
+  app.get("/api/employees", authenticateCompany, async (req, res) => {
     try {
-      const employees = await storage.getAllEmployees();
-      res.json(employees);
-    } catch (error) {
-      res.status(500).json({ message: "Error fetching employees" });
-    }
+      const companyId = req.company?.id;
+      const { db: dbE } = await import("./db.js");
+      const { sql: sqlE } = await import("drizzle-orm");
+      const result = await dbE.execute(sqlE`SELECT * FROM employees WHERE company_id = ${companyId} ORDER BY created_at DESC`);
+      res.json(result.rows);
+    } catch (error) { res.status(500).json({ message: "Error fetching employees" }); }
   });
 
   app.get("/api/employees/:id", async (req, res) => {
