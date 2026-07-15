@@ -199,7 +199,7 @@ export default function Dashboard() {
   };
 
   const handleViewReport = (evaluation: any) => {
-    const employee = employees.find((emp: any) => emp.id === evaluation.employeeId);
+    const employee = employees.find((emp: any) => emp.id === evaluation.employeeId || evaluation.employee_id);
     if (!employee) {
       toast({
         title: "Error",
@@ -447,7 +447,7 @@ export default function Dashboard() {
               </thead>
               <tbody className="bg-white divide-y divide-slate-200">
                 {recentEvaluations.map((evaluation: any) => {
-                  const employee = employees.find((emp: any) => emp.id === evaluation.employeeId);
+                  const employee = employees.find((emp: any) => emp.id === evaluation.employeeId || evaluation.employee_id);
                   return (
                     <tr key={evaluation.id}>
                       <td className="px-6 py-4 whitespace-nowrap">
