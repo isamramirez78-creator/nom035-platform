@@ -26,7 +26,7 @@ export default function Dashboard() {
     queryKey: ["/api/evaluations"],
     select: (data: any[]) => data
       .filter(evaluation => evaluation.completed)
-      .sort((a, b) => new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime())
+      .sort((a, b) => new Date(b.completedAt || b.created_at).getTime() - new Date(a.completedAt || a.created_at).getTime())
       .slice(0, 5)
   });
 
@@ -106,7 +106,7 @@ export default function Dashboard() {
       
       doc.setFontSize(11);
       doc.setFont('helvetica', 'normal');
-      doc.text(`Tipo de Cuestionario: ${getQuestionnaireTypeName(evaluation.questionnaireType)}`, 25, yPos);
+      doc.text(`Tipo de Cuestionario: ${getQuestionnaireTypeName(evaluation.questionnaireType || evaluation.questionnaire_type)}`, 25, yPos);
       yPos += 8;
       doc.text(`Fecha de Evaluación: ${new Date(evaluation.createdAt).toLocaleDateString('es-MX')}`, 25, yPos);
       yPos += 8;
@@ -458,7 +458,7 @@ export default function Dashboard() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900">{employee?.area}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
-                        {evaluation.completedAt ? new Date(evaluation.completedAt).toLocaleDateString('es-ES') : '-'}
+                        {evaluation.completedAt || evaluation.created_at ? new Date(evaluation.completedAt || evaluation.created_at).toLocaleDateString('es-ES') : '-'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={getRiskLevelClass(evaluation.riskLevel || evaluation.risk_level)}>
