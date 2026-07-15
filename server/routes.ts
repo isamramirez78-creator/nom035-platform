@@ -186,17 +186,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Evaluation routes
-  app.get("/api/evaluations", async (req, res) => {
+  app.get("/api/evaluations", authenticateCompany, async (req, res) => {
     try {
-      const evaluations = await storage.getAllEvaluations();
-      res.json(evaluations);
-    } catch (error) {
-      console.error("Error fetching evaluations:", error);
-      res.status(500).json({ message: "Error fetching evaluations" });
+      const companyId = req.company?.id;
+      const { db: dbEv } = await import("./db.js");
+      const { sql: sqlEv } = await import("drizzle-orm");
+      const result = await dbEv.execute(sqlEv`SELECT e.*, emp.nombre, emp.apellidos FROM evaluations e LEFT JOIN employees emp ON emp.id = e.employee_id WHERE e.company_id = ${companyId} ORDER BY e.created_at DESC`);
+      res.json(result.rows);
+    } catch (error: any) {
+      console.error("Error:", error);
     }
   });
-
-  app.get("/api/evaluations/employee/:employeeId", authenticateCompany, async (req: any, res) => {
+  app.get("/api/evaluations/employee/:employeeId", authenticateCompany, async (req, res) => {
     try {
       const employeeId = parseInt(req.params.employeeId);
       const companyId = req.company?.id;
