@@ -128,7 +128,7 @@ export default function Dashboard() {
       doc.setFont('helvetica', 'normal');
       yPos += 8;
       
-      doc.text(`Puntuación General: ${parseInt(String(evaluation.overall_score || evaluation.overallScore || 0)) || 'No calculada'}`, 25, yPos);
+      doc.text(`Puntuación General: ${(evaluation.overall_score !== undefined ? evaluation.overall_score : evaluation.overallScore !== undefined ? evaluation.overallScore : 'No calculada')}`, 25, yPos);
       yPos += 20;
       
       // Domain Scores Section
