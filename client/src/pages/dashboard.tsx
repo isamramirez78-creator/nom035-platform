@@ -189,7 +189,7 @@ export default function Dashboard() {
       const fileName = `reporte-individual-${((employee.nombre || "") + " " + (employee.apellidos || employee.apellido_paterno || "")).replace(/\s+/g, '-')}-${new Date().toISOString().split('T')[0]}.pdf`;
       doc.save(fileName);
     }).catch((error) => {
-      console.error('Error loading jsPDF:', error);
+      console.error('Error cargando jsPDF:', error);
       toast({
         title: "Error",
         description: "No se pudo generar el PDF",
