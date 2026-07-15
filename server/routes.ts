@@ -427,17 +427,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Analytics and stats
-  app.get("/api/stats", async (req, res) => {
+  app.get("/api/stats", authenticateCompany, async (req, res) => {
     try {
-      const stats = await storage.getEvaluationStats();
-      res.json(stats);
-    } catch (error) {
-      console.error("Stats error:", error);
-      res.status(500).json({ message: "Error fetching statistics", error: error.message });
-    }
+      const companyId = req.company?.id;
+      const { db: dbS } = await import("./db.js");
+      const { sql: sqlS } = await import("drizzle-orm");
+      const empR = await dbS.execute(sqlS`SELECT COUNT(*) as count FROM employees WHERE company_id = ${companyId}`);
+      const evalR = await dbS.execute(sqlS`SELECT COUNT(*) as count FROM evaluations WHERE company_id = ${companyId} AND completed = true`);
+      const totalEmp = parseInt(empR.rows[0].count || 0);
+      const totalEval = parseInt(evalR.rows[0].count || 0);
+      res.json({ totalEmployees: totalEmp, evaluationsCompleted: totalEval, pendingEvaluations: Math.max(0, totalEmp - totalEval), coveragePercentage: totalEmp > 0 ? Math.round(totalEval / totalEmp * 100) : 0 });
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
   });
-
-  // Employee Files routes
   app.get("/api/employee-files/:employeeId", async (req, res) => {
     try {
       const employeeId = parseInt(req.params.employeeId);
