@@ -174,7 +174,7 @@ export async function generateExecutiveReport(stats: any, employees: any[], eval
   // KPIs
   pg.sectionHeader('INDICADORES CLAVE');
   const completed = evaluations.filter(e=>e.completed);
-  const highRisk = completed.filter(e=>e.riskLevel||e.risk_level==='alto'||e.riskLevel||e.risk_level==='muy-alto').length;
+  const highRisk = completed.filter(e=>e.riskLevel==='alto'||e.riskLevel==='muy-alto').length;
   const cov = employees.length > 0 ? Math.round((completed.length/employees.length)*100) : 0;
   const hrPct = completed.length > 0 ? parseFloat(((highRisk/completed.length)*100).toFixed(1)) : 0;
 
@@ -196,38 +196,70 @@ export async function generateExecutiveReport(stats: any, employees: any[], eval
   // Distribución de riesgos
   pg.sectionHeader('DISTRIBUCIÓN DE NIVELES DE RIESGO', [249,115,22]);
   const dist = completed.reduce((acc:any,e:any)=>{
-    const k=e.riskLevel||e.risk_level||'sin-riesgo'; acc[k]=(acc[k]||0)+1; return acc;
+    const k=e.riskLevel||'sin-riesgo'; acc[k]=(acc[k]||0)+1; return acc;
   },{});
   const total = Object.values(dist).reduce((a:any,b:any)=>a+b,0) as number;
-  const order=['nulo','muy-bajo','bajo','medio','alto','muy-alto'];
-  order.forEach(level=>{
-    const count=(dist[level]||0) as number;
-    if(!count) return;
-    const pct=Math.round((count/total)*100);
-    const color=RISK_C[level];
-    pg.ensure(10);
-    pg.txt(RISK_L[level], pg.x+3, pg.y, color, 8.5, true);
-    pg.txt(`${count} (${pct}%)`, pg.x+30, pg.y, [30,58,95], 8);
-    const bx=pg.x+65, bw=pg.w-68;
-    pg.fillRect(bx, pg.y-5, bw, 6, [230,235,240]);
-    pg.fillRect(bx, pg.y-5, Math.round(bw*pct/100), 6, color);
-    pg.y+=8;
-  });
+  // Dibujar gráfico circular (pie chart) con jsPDF
+  if(total>0){
+    pg.ensure(70);
+    const cx = pg.x + 35; // centro X del círculo
+    const cy = pg.y + 30; // centro Y del círculo
+    const r = 25;         // radio
+    let startAngle = -Math.PI/2; // empezar desde arriba
+    const order=['nulo','muy-bajo','bajo','medio','alto','muy-alto'];
+    const slices: {level:string;count:number;pct:number;color:[number,number,number]}[] = [];
+    order.forEach(level=>{
+      const count=(dist[level]||0) as number;
+      if(!count) return;
+      const pct = count/total;
+      slices.push({level,count,pct:Math.round(pct*100),color:RISK_C[level]||[150,150,150]});
+    });
+    slices.forEach(slice=>{
+      const endAngle = startAngle + (slice.pct/100)*2*Math.PI;
+      const doc2 = pg.doc as any;
+      doc2.setFillColor(...slice.color);
+      // Dibujar sector del pie
+      doc2.moveTo(cx,cy);
+      const steps = Math.max(3, Math.round(slice.pct/2));
+      const pts:number[][] = [[cx,cy]];
+      for(let i=0;i<=steps;i++){
+        const a = startAngle + (i/steps)*(endAngle-startAngle);
+        pts.push([cx+r*Math.cos(a), cy+r*Math.sin(a)]);
+      }
+      doc2.setLineWidth(0.2);
+      doc2.setDrawColor(255,255,255);
+      // Polígono aproximado del sector
+      const path = pts.map((p,i)=>(i===0?`${p[0].toFixed(1)} ${p[1].toFixed(1)} m`:`${p[0].toFixed(1)} ${p[1].toFixed(1)} l`)).join(' ') + ' f';
+      (doc2 as any).internal.write(path);
+      startAngle = endAngle;
+    });
+
+    // Leyenda a la derecha del círculo
+    let ly = pg.y + 5;
+    const lx = pg.x + 70;
+    slices.forEach(slice=>{
+      pg.doc.setFillColor(...slice.color);
+      pg.doc.rect(lx, ly-3, 5, 4, 'F');
+      pg.txt(`${RISK_L[slice.level]}: ${slice.count} (${slice.pct}%)`, lx+7, ly, slice.color, 8);
+      ly += 8;
+    });
+    pg.y += 65;
+  }
   pg.gap(3);
 
   // Trabajadores de alto riesgo
-  const highRiskEvals = completed.filter((e:any)=>e.riskLevel||e.risk_level==='alto'||e.riskLevel||e.risk_level==='muy-alto');
+  const highRiskEvals = completed.filter((e:any)=>e.riskLevel==='alto'||e.riskLevel==='muy-alto');
   if(highRiskEvals.length>0){
     pg.sectionHeader('TRABAJADORES QUE REQUIEREN ATENCIÓN PRIORITARIA',[239,68,68]);
     tableHeader(pg,['Trabajador','Área','Nivel de Riesgo','Acción Recomendada'],[62,40,38,42],pg.x);
     highRiskEvals.forEach((ev:any,i:number)=>{
       const emp=employees.find((e:any)=>e.id===ev.employeeId||e.id===ev.employee_id);
       const name=emp?`${emp.nombre} ${emp.apellidoPaterno||emp.apellidos||''}`.trim():'—';
-      const color=RISK_C[ev.riskLevel||ev.risk_level];
+      const color=RISK_C[ev.riskLevel];
       tableRow(pg,[
         {text:name},{text:emp?.area||'—'},
-        {text:RISK_L[ev.riskLevel||ev.risk_level]||ev.riskLevel||ev.risk_level,color},
-        {text:ev.riskLevel||ev.risk_level==='muy-alto'?'Atención inmediata':'Urgente',color},
+        {text:RISK_L[ev.riskLevel]||ev.riskLevel,color},
+        {text:ev.riskLevel==='muy-alto'?'Atención inmediata':'Urgente',color},
       ],[62,40,38,42],pg.x,i%2===0);
     });
     pg.gap(4);
@@ -363,7 +395,7 @@ export async function generateAreaReport(area: string, employees: any[], evaluat
 
   const areaEmps = area==='todas' ? employees : employees.filter((e:any)=>e.area===area);
   const areaEvals = areaEmps.map((e:any)=>evaluations.find((ev:any)=>(ev.employeeId||ev.employee_id)===e.id&&ev.completed)).filter(Boolean);
-  const highRisk = areaEvals.filter((e:any)=>e.riskLevel||e.risk_level==='alto'||e.riskLevel||e.risk_level==='muy-alto').length;
+  const highRisk = areaEvals.filter((e:any)=>e.riskLevel==='alto'||e.riskLevel==='muy-alto').length;
   const cov = areaEmps.length>0?Math.round((areaEvals.length/areaEmps.length)*100):0;
 
   pg.sectionHeader('RESUMEN DEL ÁREA');
@@ -379,11 +411,11 @@ export async function generateAreaReport(area: string, employees: any[], evaluat
   areaEmps.forEach((emp:any,i:number)=>{
     const ev=evaluations.find((e:any)=>(e.employeeId||e.employee_id)===emp.id&&e.completed);
     const name=`${emp.nombre||''} ${emp.apellidoPaterno||emp.apellidos||''}`.trim();
-    const c=ev?RISK_C[ev.riskLevel||ev.risk_level]||GRAY:GRAY;
+    const c=ev?RISK_C[ev.riskLevel]||GRAY:GRAY;
     tableRow(pg,[
       {text:name},{text:emp.puesto||'—'},
       {text:ev?'Sí':'No',color:ev?[34,197,94]:[239,68,68]},
-      {text:ev?RISK_L[ev.riskLevel||ev.risk_level]||'—':'Sin evaluar',color:c},
+      {text:ev?RISK_L[ev.riskLevel]||'—':'Sin evaluar',color:c},
       {text:ev?String(ev.overallScore||0):'—'},
     ],[52,40,20,38,32],pg.x,i%2===0);
   });
@@ -406,7 +438,7 @@ export async function generateComplianceReport(stats: any, employees: any[], eva
 
   const completed = evaluations.filter(e=>e.completed);
   const cov = employees.length>0?Math.round((completed.length/employees.length)*100):0;
-  const highRisk = completed.filter(e=>e.riskLevel||e.risk_level==='alto'||e.riskLevel||e.risk_level==='muy-alto').length;
+  const highRisk = completed.filter(e=>e.riskLevel==='alto'||e.riskLevel==='muy-alto').length;
   const hrPct = completed.length>0?parseFloat(((highRisk/completed.length)*100).toFixed(1)):0;
 
   pg.sectionHeader('INFORMACIÓN DE LA ORGANIZACIÓN');
@@ -490,7 +522,7 @@ export async function generateExecutiveNOM035Report(stats: any, employees: any[]
   pageHeader(doc,'REPORTE EJECUTIVO  NOM-035-STPS-2018','Análisis comparativo por área y conclusiones ejecutivas',cName);
 
   const cov = employees.length>0?Math.round((completed.length/employees.length)*100):0;
-  const highRisk = completed.filter(e=>e.riskLevel||e.risk_level==='alto'||e.riskLevel||e.risk_level==='muy-alto').length;
+  const highRisk = completed.filter(e=>e.riskLevel==='alto'||e.riskLevel==='muy-alto').length;
   const hrPct = completed.length>0?Math.round((highRisk/completed.length)*100):0;
 
   pg.sectionHeader('1. RESUMEN EJECUTIVO');
@@ -509,8 +541,8 @@ export async function generateExecutiveNOM035Report(stats: any, employees: any[]
     const area=emp?.area||'Sin área';
     if(!areas[area]) areas[area]={total:0,alto:0,medio:0,bajo:0};
     areas[area].total++;
-    if(ev.riskLevel||ev.risk_level==='alto'||ev.riskLevel||ev.risk_level==='muy-alto') areas[area].alto++;
-    else if(ev.riskLevel||ev.risk_level==='medio') areas[area].medio++;
+    if(ev.riskLevel==='alto'||ev.riskLevel==='muy-alto') areas[area].alto++;
+    else if(ev.riskLevel==='medio') areas[area].medio++;
     else areas[area].bajo++;
   });
 
@@ -527,7 +559,7 @@ export async function generateExecutiveNOM035Report(stats: any, employees: any[]
   pg.gap(5);
 
   pg.sectionHeader('3. DISTRIBUCIÓN GLOBAL DE RIESGOS');
-  const dist=completed.reduce((acc:any,e:any)=>{const k=e.riskLevel||e.risk_level||'sin-riesgo';acc[k]=(acc[k]||0)+1;return acc;},{});
+  const dist=completed.reduce((acc:any,e:any)=>{const k=e.riskLevel||'sin-riesgo';acc[k]=(acc[k]||0)+1;return acc;},{});
   const tot=Object.values(dist).reduce((a:any,b:any)=>a+b,0) as number;
   ['nulo','muy-bajo','bajo','medio','alto','muy-alto'].forEach(level=>{
     const count=(dist[level]||0) as number; if(!count) return;
@@ -553,7 +585,7 @@ export async function generateExecutiveNOM035Report(stats: any, employees: any[]
   conclusiones.push(`La próxima evaluación deberá realizarse antes de ${new Date().getFullYear()+2} (Numeral 7.9).`);
   conclusiones.forEach((c,i)=>{
     pg.ensure(12);
-    pg.fillRect(pg.x,pg.y-2,pg.w,10,i%2===0?LIGHT_BG:[255,255,255]);
+    pg.fillRect(pg.x,pg.y-2,pg.w,10,i%2===0?LIGHT:[255,255,255]);
     pg.fillRect(pg.x,pg.y-2,3,10,LIME);
     const lines=doc.splitTextToSize(`${i+1}. ${c}`,174);
     doc.setTextColor(...[30,58,95] as [number,number,number]);
@@ -584,7 +616,7 @@ export async function generateInterventionPlan(stats: any, employees: any[], eva
   (pg as any).doc = doc;
   const cName = company?.razonSocial||company?.razon_social||company?.nombre_empresa||"Empresa";
   const completed = evaluations.filter(e=>e.completed);
-  const highRisk = completed.filter(e=>e.riskLevel||e.risk_level==='alto'||e.riskLevel||e.risk_level==='muy-alto');
+  const highRisk = completed.filter(e=>e.riskLevel==='alto'||e.riskLevel==='muy-alto');
 
   pageHeader(doc,'PLAN DE INTERVENCIÓN  NOM-035-STPS-2018','Acciones correctivas y preventivas para factores de riesgo psicosocial',cName);
 
@@ -603,8 +635,8 @@ export async function generateInterventionPlan(stats: any, employees: any[], eva
     highRisk.forEach((ev:any,i:number)=>{
       const emp=employees.find((e:any)=>e.id===(ev.employeeId||ev.employee_id));
       const name=emp?`${emp.nombre||''} ${emp.apellidoPaterno||emp.apellidos||''}`.trim():'—';
-      const color=RISK_C[ev.riskLevel||ev.risk_level]||[239,68,68];
-      tableRow(pg,[{text:name},{text:emp?.area||'—'},{text:RISK_L[ev.riskLevel||ev.risk_level]||ev.riskLevel||ev.risk_level,color},{text:ev.riskLevel||ev.risk_level==='muy-alto'?'Canalización inmediata':'Intervención urgente',color},{text:ev.riskLevel||ev.risk_level==='muy-alto'?'Inmediato':'30 días'}],[50,32,25,55,22],pg.x,i%2===0);
+      const color=RISK_C[ev.riskLevel]||[239,68,68];
+      tableRow(pg,[{text:name},{text:emp?.area||'—'},{text:RISK_L[ev.riskLevel]||ev.riskLevel,color},{text:ev.riskLevel==='muy-alto'?'Canalización inmediata':'Intervención urgente',color},{text:ev.riskLevel==='muy-alto'?'Inmediato':'30 días'}],[50,32,25,55,22],pg.x,i%2===0);
     });
     pg.gap(4);
   }
@@ -706,7 +738,7 @@ export const generateExecutivePresentation = async () => {
         participationPct:employees.length>0?Math.round((evaluations.filter((e:any)=>e.completed).length/employees.length)*100):0,
         globalScore:stats?.globalScore||0, maxScore:288, riskLevel:stats?.globalRiskLevel||'medio',
         benchmarkScore:88, benchmarkCompanies:57,
-        canalizationCount:evaluations.filter((e:any)=>e.riskLevel||e.risk_level==='alto'||e.riskLevel||e.risk_level==='muy-alto').length,
+        canalizationCount:evaluations.filter((e:any)=>e.riskLevel==='alto'||e.riskLevel==='muy-alto').length,
         canalizationPct:0, canalizationByType:[], categories:[], domains:[], focusAreas:[], byArea:[], byGender:[], byGeneration:[],
       },
       findings:['El nivel general de riesgo ha sido evaluado conforme a la NOM-035-STPS-2018.'],
