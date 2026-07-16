@@ -943,8 +943,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { templateId, filters, customConfig } = req.body;
 
       // Get all evaluations and employees for report generation
-      const evaluations = await storage.getAllEvaluations();
-      const employees = await storage.getAllEmployees();
+      const companyId2 = req.company?.id;
+      const { db: dbR } = await import("./db.js");
+      const { sql: sqlR } = await import("drizzle-orm");
+      const evalRows = await dbR.execute(sqlR`SELECT * FROM evaluations WHERE company_id = ${companyId2}`);
+      const empRows = await dbR.execute(sqlR`SELECT * FROM employees WHERE company_id = ${companyId2}`);
+      const evaluations = evalRows.rows;
+      const employees = empRows.rows;
       
       // Filter evaluations based on criteria
       let filteredEvaluations = evaluations;
@@ -1031,8 +1036,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Compliance metrics endpoint
   app.get("/api/compliance/metrics", authenticateCompany, async (req, res) => {
     try {
-      const employees = await storage.getAllEmployees();
-      const evaluations = await storage.getAllEvaluations();
+      const companyId3 = req.company?.id; const { db: dbC } = await import("./db.js"); const { sql: sqlC } = await import("drizzle-orm"); const empC = await dbC.execute(sqlC`SELECT * FROM employees WHERE company_id = ${companyId3}`); const employees = empC.rows;
+      const evalC = await dbC.execute(sqlC`SELECT * FROM evaluations WHERE company_id = ${companyId3}`); const evaluations = evalC.rows;
       const completed = evaluations.filter(e => e.completed);
 
       const riskCounts = completed.reduce((acc: any, e) => {
@@ -1130,8 +1135,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Calcular estado de cumplimiento NOM-035
       const companyId = req.company?.id;
       const company = await storage.getCompanyById(companyId);
-      const employees = await storage.getAllEmployees();
-      const evaluations = await storage.getAllEvaluations();
+      const companyId4 = req.company?.id; const { db: dbN } = await import("./db.js"); const { sql: sqlN } = await import("drizzle-orm"); const empN = await dbN.execute(sqlN`SELECT * FROM employees WHERE company_id = ${companyId4}`); const employees = empN.rows;
+      const evalN = await dbN.execute(sqlN`SELECT * FROM evaluations WHERE company_id = ${companyId4}`); const evaluations = evalN.rows;
       
       const complianceStatus = {
         companySize: employees.length,
