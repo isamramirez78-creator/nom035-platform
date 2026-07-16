@@ -553,7 +553,7 @@ export async function generateExecutiveNOM035Report(stats: any, employees: any[]
   conclusiones.push(`La próxima evaluación deberá realizarse antes de ${new Date().getFullYear()+2} (Numeral 7.9).`);
   conclusiones.forEach((c,i)=>{
     pg.ensure(12);
-    pg.fillRect(pg.x,pg.y-2,pg.w,10,i%2===0?LIGHT:[255,255,255]);
+    pg.fillRect(pg.x,pg.y-2,pg.w,10,i%2===0?LIGHT_BG:[255,255,255]);
     pg.fillRect(pg.x,pg.y-2,3,10,LIME);
     const lines=doc.splitTextToSize(`${i+1}. ${c}`,174);
     doc.setTextColor(...[30,58,95] as [number,number,number]);
