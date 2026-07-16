@@ -621,7 +621,7 @@ export default function Reports() {
                         {report.status === 'completed' && (
                           <Button
                             size="sm"
-                            onClick={() => downloadReportMutation.mutate(report.id)}
+                            onClick={() => generatePDFReport(report)}
                             disabled={downloadReportMutation.isPending}
                           >
                             <Download className="w-4 h-4 mr-2" />
