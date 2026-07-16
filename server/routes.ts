@@ -436,7 +436,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const evalR = await dbS.execute(sqlS`SELECT COUNT(*) as count FROM evaluations WHERE company_id = ${companyId} AND completed = true`);
       const totalEmp = parseInt(empR.rows[0].count || 0);
       const totalEval = parseInt(evalR.rows[0].count || 0);
-      res.json({ totalEmployees: totalEmp, evaluationsCompleted: totalEval, pendingEvaluations: Math.max(0, totalEmp - totalEval), coveragePercentage: totalEmp > 0 ? Math.round(totalEval / totalEmp * 100) : 0 });
+      const riskR = await dbS.execute(sqlS`SELECT risk_level, COUNT(*) as count FROM evaluations WHERE company_id = ${companyId} AND completed = true GROUP BY risk_level`);
+      const riskDist = riskR.rows.reduce((acc,r) => { acc[r.risk_level]=parseInt(r.count||0); return acc; }, {});
+      res.json({ totalEmployees: totalEmp, evaluationsCompleted: totalEval, pendingEvaluations: Math.max(0, totalEmp - totalEval), coveragePercentage: totalEmp > 0 ? Math.round(totalEval / totalEmp * 100) : 0, riskDistribution: riskDist });
     } catch (e: any) { res.status(500).json({ message: e.message }); }
   });
   app.get("/api/employee-files/:employeeId", async (req, res) => {
