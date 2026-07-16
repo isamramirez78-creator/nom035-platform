@@ -1118,7 +1118,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // NOM-035 Compliance endpoints
-  app.get("/api/company-info", async (req, res) => {
+  app.get("/api/company-info", authenticateCompany, async (req, res) => {
     try {
       // En un entorno real, esto vendría de la sesión autenticada
       const companyId = req.company?.id;
