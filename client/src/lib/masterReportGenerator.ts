@@ -395,7 +395,7 @@ export async function generateAreaReport(area: string, employees: any[], evaluat
 
   const areaEmps = area==='todas' ? employees : employees.filter((e:any)=>e.area===area);
   const areaEvals = areaEmps.map((e:any)=>evaluations.find((ev:any)=>(ev.employeeId||ev.employee_id)===e.id&&ev.completed)).filter(Boolean);
-  const highRisk = areaEvals.filter((e:any)=>e.riskLevel||e.risk_level)==='alto'||e.riskLevel||e.risk_level)==='muy-alto').length;
+  const highRisk = areaEvals.filter((e:any)=>(e.riskLevel||e.risk_level)==="alto"||(e.riskLevel||e.risk_level)==="muy-alto").length;
   const cov = areaEmps.length>0?Math.round((areaEvals.length/areaEmps.length)*100):0;
 
   pg.sectionHeader('RESUMEN DEL ÁREA');
@@ -438,7 +438,7 @@ export async function generateComplianceReport(stats: any, employees: any[], eva
 
   const completed = evaluations.filter(e=>e.completed);
   const cov = employees.length>0?Math.round((completed.length/employees.length)*100):0;
-  const highRisk = completed.filter(e=>e.riskLevel||e.risk_level)==='alto'||e.riskLevel||e.risk_level)==='muy-alto').length;
+  const highRisk = completed.filter(e=>(e.riskLevel||e.risk_level)==="alto"||(e.riskLevel||e.risk_level)==="muy-alto").length;
   const hrPct = completed.length>0?parseFloat(((highRisk/completed.length)*100).toFixed(1)):0;
 
   pg.sectionHeader('INFORMACIÓN DE LA ORGANIZACIÓN');
@@ -522,7 +522,7 @@ export async function generateExecutiveNOM035Report(stats: any, employees: any[]
   pageHeader(doc,'REPORTE EJECUTIVO  NOM-035-STPS-2018','Análisis comparativo por área y conclusiones ejecutivas',cName);
 
   const cov = employees.length>0?Math.round((completed.length/employees.length)*100):0;
-  const highRisk = completed.filter(e=>e.riskLevel||e.risk_level)==='alto'||e.riskLevel||e.risk_level)==='muy-alto').length;
+  const highRisk = completed.filter(e=>(e.riskLevel||e.risk_level)==="alto"||(e.riskLevel||e.risk_level)==="muy-alto").length;
   const hrPct = completed.length>0?Math.round((highRisk/completed.length)*100):0;
 
   pg.sectionHeader('1. RESUMEN EJECUTIVO');
@@ -616,7 +616,7 @@ export async function generateInterventionPlan(stats: any, employees: any[], eva
   (pg as any).doc = doc;
   const cName = company?.razonSocial||company?.razon_social||company?.nombre_empresa||"Empresa";
   const completed = evaluations.filter(e=>e.completed);
-  const highRisk = completed.filter(e=>e.riskLevel||e.risk_level)==='alto'||e.riskLevel||e.risk_level)==='muy-alto');
+  const highRisk = completed.filter(e=>(e.riskLevel||e.risk_level)==="alto"||(e.riskLevel||e.risk_level)==="muy-alto");
 
   pageHeader(doc,'PLAN DE INTERVENCIÓN  NOM-035-STPS-2018','Acciones correctivas y preventivas para factores de riesgo psicosocial',cName);
 
@@ -738,7 +738,7 @@ export const generateExecutivePresentation = async () => {
         participationPct:employees.length>0?Math.round((evaluations.filter((e:any)=>e.completed).length/employees.length)*100):0,
         globalScore:stats?.globalScore||0, maxScore:288, riskLevel:stats?.globalRiskLevel||'medio',
         benchmarkScore:88, benchmarkCompanies:57,
-        canalizationCount:evaluations.filter((e:any)=>e.riskLevel||e.risk_level)==='alto'||e.riskLevel||e.risk_level)==='muy-alto').length,
+        canalizationCount:evaluations.filter((e:any)=>(e.riskLevel||e.risk_level)==="alto"||(e.riskLevel||e.risk_level)==="muy-alto").length,
         canalizationPct:0, canalizationByType:[], categories:[], domains:[], focusAreas:[], byArea:[], byGender:[], byGeneration:[],
       },
       findings:['El nivel general de riesgo ha sido evaluado conforme a la NOM-035-STPS-2018.'],
