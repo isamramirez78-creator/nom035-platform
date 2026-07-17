@@ -259,7 +259,7 @@ export async function generateExecutiveReport(stats: any, employees: any[], eval
       tableRow(pg,[
         {text:name},{text:emp?.area||'—'},
         {text:RISK_L[ev.riskLevel||ev.risk_level]||ev.riskLevel||ev.risk_level,color},
-        {text:ev.riskLevel==='muy-alto'?'Atención inmediata':'Urgente',color},
+        {text:(ev.riskLevel||ev.risk_level)==="muy-alto"?"Atención inmediata":"Urgente",color},
       ],[62,40,38,42],pg.x,i%2===0);
     });
     pg.gap(4);
@@ -541,8 +541,8 @@ export async function generateExecutiveNOM035Report(stats: any, employees: any[]
     const area=emp?.area||'Sin área';
     if(!areas[area]) areas[area]={total:0,alto:0,medio:0,bajo:0};
     areas[area].total++;
-    if(ev.riskLevel==='alto'||ev.riskLevel==='muy-alto') areas[area].alto++;
-    else if(ev.riskLevel==='medio') areas[area].medio++;
+    if((ev.riskLevel||ev.risk_level)==="alto"||(ev.riskLevel||ev.risk_level)==="muy-alto") areas[area].alto++
+    else if((ev.riskLevel||ev.risk_level)==="medio") areas[area].medio++
     else areas[area].bajo++;
   });
 
@@ -636,7 +636,7 @@ export async function generateInterventionPlan(stats: any, employees: any[], eva
       const emp=employees.find((e:any)=>e.id===(ev.employeeId||ev.employee_id));
       const name=emp?`${emp.nombre||''} ${emp.apellidoPaterno||emp.apellidos||''}`.trim():'—';
       const color=RISK_C[ev.riskLevel||ev.risk_level]||[239,68,68];
-      tableRow(pg,[{text:name},{text:emp?.area||'—'},{text:RISK_L[ev.riskLevel||ev.risk_level]||ev.riskLevel||ev.risk_level,color},{text:ev.riskLevel==='muy-alto'?'Canalización inmediata':'Intervención urgente',color},{text:ev.riskLevel==='muy-alto'?'Inmediato':'30 días'}],[50,32,25,55,22],pg.x,i%2===0);
+      tableRow(pg,[{text:name},{text:emp?.area||"—"},{text:RISK_L[ev.riskLevel||ev.risk_level]||ev.riskLevel||ev.risk_level,color},{text:(ev.riskLevel||ev.risk_level)==="muy-alto"?"Canalización inmediata":"Intervención urgente",color},{text:(ev.riskLevel||ev.risk_level)==="muy-alto"?"Inmediato":"30 días"}],[50,32,25,55,22],pg.x,i%2===0);
     });
     pg.gap(4);
   }
