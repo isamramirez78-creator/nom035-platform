@@ -174,7 +174,7 @@ export async function generateExecutiveReport(stats: any, employees: any[], eval
   // KPIs
   pg.sectionHeader('INDICADORES CLAVE');
   const completed = evaluations.filter(e=>e.completed);
-  const highRisk = completed.filter(e=>e.riskLevel||e.risk_level)==='alto'||e.riskLevel||e.risk_level)==='muy-alto').length;
+  const highRisk = completed.filter(e=>(e.riskLevel||e.risk_level)==="alto"||(e.riskLevel||e.risk_level)==="muy-alto").length;
   const cov = employees.length > 0 ? Math.round((completed.length/employees.length)*100) : 0;
   const hrPct = completed.length > 0 ? parseFloat(((highRisk/completed.length)*100).toFixed(1)) : 0;
 
@@ -248,7 +248,7 @@ export async function generateExecutiveReport(stats: any, employees: any[], eval
   pg.gap(3);
 
   // Trabajadores de alto riesgo
-  const highRiskEvals = completed.filter((e:any)=>e.riskLevel||e.risk_level)==='alto'||e.riskLevel||e.risk_level)==='muy-alto');
+  const highRiskEvals = completed.filter((e:any)=>(e.riskLevel||e.risk_level)==="alto"||(e.riskLevel||e.risk_level)==="muy-alto");
   if(highRiskEvals.length>0){
     pg.sectionHeader('TRABAJADORES QUE REQUIEREN ATENCIÓN PRIORITARIA',[239,68,68]);
     tableHeader(pg,['Trabajador','Área','Nivel de Riesgo','Acción Recomendada'],[62,40,38,42],pg.x);
