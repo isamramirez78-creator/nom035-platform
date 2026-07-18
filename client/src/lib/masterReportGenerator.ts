@@ -415,7 +415,7 @@ export async function generateAreaReport(area: string, employees: any[], evaluat
     tableRow(pg,[
       {text:name},{text:emp.puesto||'—'},
       {text:ev?'Sí':'No',color:ev?[34,197,94]:[239,68,68]},
-      {text:ev?RISK_L[ev.riskLevel]||'—':'Sin evaluar',color:c},
+      {text:ev?RISK_L[ev.riskLevel||ev.risk_level]||"—":"Sin evaluar",color:c},
       {text:ev?String(ev.overallScore||0):'—'},
     ],[52,40,20,38,32],pg.x,i%2===0);
   });
