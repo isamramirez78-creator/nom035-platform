@@ -665,7 +665,7 @@ export async function generateInterventionPlan(stats: any, employees: any[], eva
   });
 
   addFooters(doc,cName);
-  doc.save(`Plan-Intervencion-NOM035-${new Date().toISOString().split('T')[0]}.pdf`);
+  doc.save(`Plan-Intervencion-NOM035v2-${new Date().toISOString().split('T')[0]}.pdf`);
 }
 
 
