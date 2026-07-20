@@ -58,7 +58,7 @@ function Protected({ component: Component }: { component: ComponentType }) {
           ["/import","Importar"],
           ["/interventions","Intervenciones"],
         ].map(([p,l]) => (
-          <a key={p} href={p} style={{ color: "#94A3B8", padding: "10px 14px", fontSize: 12, textDecoration: "none", whiteSpace: "nowrap",
+          <a key={p} href={p} style={{ padding: "10px 14px", fontSize: 12, textDecoration: "none", whiteSpace: "nowrap",
             borderBottom: window.location.pathname === p ? "2px solid #84CC16" : "2px solid transparent",
             color: window.location.pathname === p ? "#84CC16" : "#94A3B8" as any }}>
             {l}
