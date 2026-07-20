@@ -199,55 +199,7 @@ export async function generateExecutiveReport(stats: any, employees: any[], eval
     const k=e.riskLevel||'sin-riesgo'; acc[k]=(acc[k]||0)+1; return acc;
   },{});
   const total = Object.values(dist).reduce((a:any,b:any)=>a+b,0) as number;
-  // Dibujar gráfico circular (pie chart) con jsPDF
-  if(total>0){
-    pg.ensure(70);
-    const cx = pg.x + 35; // centro X del círculo
-    const cy = pg.y + 30; // centro Y del círculo
-    const r = 25;         // radio
-    let startAngle = -Math.PI/2; // empezar desde arriba
-    const order=['nulo','muy-bajo','bajo','medio','alto','muy-alto'];
-    const slices: {level:string;count:number;pct:number;color:[number,number,number]}[] = [];
-    order.forEach(level=>{
-      const count=(dist[level]||0) as number;
-      if(!count) return;
-      const pct = count/total;
-      slices.push({level,count,pct:Math.round(pct*100),color:RISK_C[level]||[150,150,150]});
-    });
-    slices.forEach(slice=>{
-      const endAngle = startAngle + (slice.pct/100)*2*Math.PI;
-      const doc2 = pg.doc as any;
-      doc2.setFillColor(...slice.color);
-      // Dibujar sector del pie
-      doc2.moveTo(cx,cy);
-      const steps = Math.max(3, Math.round(slice.pct/2));
-      const pts:number[][] = [[cx,cy]];
-      for(let i=0;i<=steps;i++){
-        const a = startAngle + (i/steps)*(endAngle-startAngle);
-        pts.push([cx+r*Math.cos(a), cy+r*Math.sin(a)]);
-      }
-      doc2.setLineWidth(0.2);
-      doc2.setDrawColor(255,255,255);
-      // Polígono aproximado del sector
-      const path = pts.map((p,i)=>(i===0?`${p[0].toFixed(1)} ${p[1].toFixed(1)} m`:`${p[0].toFixed(1)} ${p[1].toFixed(1)} l`)).join(' ') + ' f';
-      (doc2 as any).internal.write(path);
-      startAngle = endAngle;
-    });
-
-    // Leyenda a la derecha del círculo
-    let ly = pg.y + 5;
-    const lx = pg.x + 70;
-    slices.forEach(slice=>{
-      pg.doc.setFillColor(...slice.color);
-      pg.doc.rect(lx, ly-3, 5, 4, 'F');
-      pg.txt(`${RISK_L[slice.level]}: ${slice.count} (${slice.pct}%)`, lx+7, ly, slice.color, 8);
-      ly += 8;
-    });
-    pg.y += 65;
-  }
-  pg.gap(3);
-
-  // Trabajadores de alto riesgo
+  if(total>0){ const order2=["nulo","muy-bajo","bajo","medio","alto","muy-alto"]; const slices2=order2.map(l=>({level:l,count:(dist[l]||0),pct:Math.round(((dist[l]||0)/total)*100),color:RISK_C[l]||[150,150,150]})).filter(s=>s.count>0); pg.ensure(slices2.length*12+10); const bx2=pg.x+45,bw2=pg.w-50; slices2.forEach((s,i)=>{ if(i%2===0) pg.fillRect(pg.x,pg.y-3,pg.w,11,LIGHT_BG); pg.txt(RISK_L[s.level],pg.x+2,pg.y+3,s.color,8,true); pg.fillRect(bx2,pg.y-1,bw2,7,[230,235,240]); pg.fillRect(bx2,pg.y-1,Math.round(bw2*s.pct/100),7,s.color); pg.txt(s.count+" ("+s.pct+"%)",bx2+Math.round(bw2*s.pct/100)+3,pg.y+3,GRAY,7.5); pg.y+=11; }); pg.y+=4; }
   const highRiskEvals = completed.filter((e:any)=>e.riskLevel==='alto'||e.riskLevel==='muy-alto');
   if(highRiskEvals.length>0){
     pg.sectionHeader('TRABAJADORES QUE REQUIEREN ATENCIÓN PRIORITARIA',[239,68,68]);
