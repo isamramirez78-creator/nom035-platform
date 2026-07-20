@@ -156,6 +156,7 @@ function tableRow(pg: Page, cells: {text:string,color?:[number,number,number]}[]
 // REPORTE 1 — DASHBOARD EJECUTIVO / GENERAL
 // ═══════════════════════════════════════════════════════════════════════════════
 export async function generateExecutiveReport(stats: any, employees: any[], evaluations: any[], company: any): Promise<void> {
+  console.log("generateExecutiveReport called", evaluations?.length, stats);
   const jsPDF = await import('jspdf');
   const doc = new jsPDF.default({ unit:'mm', format:'a4' });
   const pg = new Page(doc);
