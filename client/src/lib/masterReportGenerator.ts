@@ -701,3 +701,4 @@ export const generateExecutivePresentation = async () => {
   } catch(e:any){ return { success:false, error:e?.message }; }
 };
 // force
+export const _v = '2.0';
