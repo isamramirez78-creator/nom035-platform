@@ -156,7 +156,6 @@ function tableRow(pg: Page, cells: {text:string,color?:[number,number,number]}[]
 // REPORTE 1 — DASHBOARD EJECUTIVO / GENERAL
 // ═══════════════════════════════════════════════════════════════════════════════
 export async function generateExecutiveReport(stats: any, employees: any[], evaluations: any[], company: any): Promise<void> {
-  console.log("generateExecutiveReport called", evaluations?.length, stats);
   const jsPDF = await import('jspdf');
   const doc = new jsPDF.default({ unit:'mm', format:'a4' });
   const pg = new Page(doc);
@@ -200,7 +199,6 @@ export async function generateExecutiveReport(stats: any, employees: any[], eval
     const k=e.riskLevel||e.risk_level||"sin-riesgo"; acc[k]=(acc[k]||0)+1; return acc;
   },{});
   const total = Object.values(dist).reduce((a:any,b:any)=>a+b,0) as number;
-  console.log("DIST total:", total, "dist:", JSON.stringify(dist));
   if(total>0){ const order2=["nulo","muy-bajo","bajo","medio","alto","muy-alto"]; const slices2=order2.map(l=>({level:l,count:(dist[l]||0),pct:Math.round(((dist[l]||0)/total)*100),color:RISK_C[l]||[150,150,150]})).filter(s=>s.count>0); pg.ensure(slices2.length*12+10); const bx2=pg.x+45,bw2=pg.w-50; slices2.forEach((s,i)=>{ if(i%2===0) pg.fillRect(pg.x,pg.y-3,pg.w,11,LIGHT_BG); pg.txt(RISK_L[s.level],pg.x+2,pg.y+3,s.color,8,true); pg.fillRect(bx2,pg.y-1,bw2,7,[230,235,240]); pg.fillRect(bx2,pg.y-1,Math.round(bw2*s.pct/100),7,s.color); pg.txt(s.count+" ("+s.pct+"%)",bx2+Math.round(bw2*s.pct/100)+3,pg.y+3,GRAY,7.5); pg.y+=11; }); pg.y+=4; }
   const highRiskEvals = completed.filter((e:any)=>e.riskLevel==='alto'||e.riskLevel==='muy-alto');
   if(highRiskEvals.length>0){
