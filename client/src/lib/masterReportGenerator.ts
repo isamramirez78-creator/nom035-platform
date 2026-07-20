@@ -410,6 +410,7 @@ export async function generateAreaReport(area: string, employees: any[], evaluat
   tableHeader(pg,['Trabajador','Puesto','Evaluado','Nivel de Riesgo','Puntaje'],[52,40,20,38,32],pg.x);
   areaEmps.forEach((emp:any,i:number)=>{
     console.log("DEBUG ev:", evaluations.map(e=>({id:e.id,emp:e.employee_id,rl:e.risk_level,c:e.completed})));
+    const ev2=evaluations.find((e)=>(e.employeeId||e.employee_id)===emp.id&&e.completed); console.log("FIND:", emp.id, "ev found:", !!ev2, "risk:", ev2?.risk_level);
     const ev=evaluations.find((e:any)=>(e.employeeId||e.employee_id)===emp.id&&e.completed);
     const name=`${emp.nombre||''} ${emp.apellidoPaterno||emp.apellidos||''}`.trim();
     const c=ev?RISK_C[ev.riskLevel||ev.risk_level]||GRAY:GRAY;
