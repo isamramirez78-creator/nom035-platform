@@ -110,6 +110,10 @@ function addFooters(doc: any, company: string) {
     doc.text(`NOM-035-STPS-2018  ·  ${company}`, 14, 284);
     doc.text(`Documento confidencial — Uso interno`, 14, 289);
     doc.text(`Página ${i} de ${n}`, 196, 284, { align:'right' });
+    if(i===1){
+      doc.setFontSize(6); doc.setTextColor(30,64,175);
+      doc.text("Nota: Los reportes consideran la evaluacion mas reciente de cada empleado. Multiples evaluaciones = ultima aplicada.", 14, 274);
+    }
     doc.text(`Plataforma NOM-035`, 196, 289, { align:'right' });
   }
 }

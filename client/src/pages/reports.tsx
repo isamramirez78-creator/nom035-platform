@@ -479,7 +479,12 @@ export default function Reports() {
                       </div>
                     </div>
                   )}
-                  
+                <div style={{background:"#EFF6FF",border:"1px solid #BFDBFE",borderRadius:8,padding:"10px 14px",marginBottom:12}}>
+                  <p style={{color:"#1E40AF",fontSize:13,margin:0}}>
+                    ℹ️ <strong>Nota:</strong> Los reportes consideran la evaluación más reciente de cada empleado.
+                    Si un trabajador tiene múltiples evaluaciones, se muestra únicamente la última aplicada.
+                  </p>
+                </div>
                   <Button
                     onClick={handleGenerateReport}
                     disabled={generateReportMutation.isPending || !selectedTemplate}
