@@ -197,7 +197,7 @@ export async function generateExecutiveReport(stats: any, employees: any[], eval
   // Distribución de riesgos
   pg.sectionHeader('DISTRIBUCIÓN DE NIVELES DE RIESGO', [249,115,22]);
   const dist = completed.reduce((acc:any,e:any)=>{
-    const k=e.riskLevel||'sin-riesgo'; acc[k]=(acc[k]||0)+1; return acc;
+    const k=e.riskLevel||e.risk_level||"sin-riesgo"; acc[k]=(acc[k]||0)+1; return acc;
   },{});
   const total = Object.values(dist).reduce((a:any,b:any)=>a+b,0) as number;
   console.log("DIST total:", total, "dist:", JSON.stringify(dist));
@@ -513,7 +513,7 @@ export async function generateExecutiveNOM035Report(stats: any, employees: any[]
   pg.gap(5);
 
   pg.sectionHeader('3. DISTRIBUCIÓN GLOBAL DE RIESGOS');
-  const dist=completed.reduce((acc:any,e:any)=>{const k=e.riskLevel||'sin-riesgo';acc[k]=(acc[k]||0)+1;return acc;},{});
+  const dist=completed.reduce((acc:any,e:any)=>{const k=e.riskLevel||e.risk_level||'sin-riesgo';acc[k]=(acc[k]||0)+1;return acc;},{});
   const tot=Object.values(dist).reduce((a:any,b:any)=>a+b,0) as number;
   ['nulo','muy-bajo','bajo','medio','alto','muy-alto'].forEach(level=>{
     const count=(dist[level]||0) as number; if(!count) return;
