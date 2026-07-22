@@ -136,6 +136,9 @@ export default function CompanyLogin() {
                 <Button type="submit" className="w-full" disabled={loginMutation.isPending}>
                   {loginMutation.isPending ? "Iniciando sesión..." : "Iniciar Sesión"}
                 </Button>
+                <div style={{textAlign:"center",marginTop:12}}>
+                  <a href="/forgot-password" style={{color:"#64748B",fontSize:13,textDecoration:"none"}}>¿Olvidaste tu contraseña?</a>
+                </div>
               </form>
             </Form>
             <div className="mt-6 space-y-4">

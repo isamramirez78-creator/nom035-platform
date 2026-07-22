@@ -22,6 +22,7 @@ const Interventions       = lazy(() => import("@/pages/interventions"));
 const CompanyProfile      = lazy(() => import("@/pages/company-profile"));
 const DenunciaPublica     = lazy(() => import("@/pages/denuncia-publica"));
 const AdminLogin          = lazy(() => import("@/pages/admin-login"));
+const ForgotPassword      = lazy(() => import("@/pages/forgot-password"));
 const PagoExitoso         = lazy(() => import("@/pages/pago-exitoso"));
 const PagoFallido         = lazy(() => import("@/pages/pago-fallido"));
 const AdminDashboard      = lazy(() => import("@/pages/admin-dashboard"));
@@ -91,6 +92,7 @@ const EmployeeDetailRoute = () => <Protected component={EmployeeDetail} />;
 // Componentes de ruta pública
 const LandingRoute    = () => <Suspense fallback={<Loading />}><Landing /></Suspense>;
 const LoginRoute      = () => <Suspense fallback={<Loading />}><CompanyLogin /></Suspense>;
+const ForgotRoute     = () => <Suspense fallback={<Loading />}><ForgotPassword /></Suspense>;
 const RegisterRoute   = () => <Suspense fallback={<Loading />}><CompanyRegister /></Suspense>;
 const PlansRoute      = () => <Suspense fallback={<Loading />}><SubscriptionPlans /></Suspense>;
 const QuestionnaireRoute = () => <Suspense fallback={<Loading />}><PublicQuestionnaire /></Suspense>;
@@ -105,6 +107,7 @@ function App() {
           <Route path="/landing"              component={LandingRoute} />
           <Route path="/login"                component={LoginRoute} />
           <Route path="/company-login"        component={LoginRoute} />
+          <Route path="/forgot-password"        component={ForgotRoute} />
           <Route path="/company-register"     component={RegisterRoute} />
           <Route path="/register"             component={RegisterRoute} />
           <Route path="/plans"                component={PlansRoute} />

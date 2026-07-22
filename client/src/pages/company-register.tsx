@@ -206,11 +206,11 @@ export default function CompanyRegister() {
                       control={form.control}
                       name="telefono"
                       render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Teléfono</FormLabel>
+                          <FormLabel>Teléfono <span style={{color:"#EF4444"}}>*</span></FormLabel>
                           <FormControl>
                             <Input placeholder="555-123-4567" {...field} />
                           </FormControl>
+                          <FormDescription style={{color:"#F59E0B",fontSize:12}}>⚠️ Campo importante: se solicitará para recuperar tu contraseña junto con tu RFC.</FormDescription>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -472,7 +472,7 @@ export default function CompanyRegister() {
                       name="telefonoAdministrador"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Teléfono</FormLabel>
+                          <FormLabel>Teléfono <span style={{color:"#EF4444"}}>*</span></FormLabel>
                           <FormControl>
                             <Input placeholder="555-123-4567" {...field} />
                           </FormControl>
