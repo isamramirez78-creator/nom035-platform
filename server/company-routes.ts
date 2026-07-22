@@ -110,6 +110,25 @@ export function registerCompanyRoutes(app: Express) {
       res.status(500).json({ message: "Error al crear cuenta de Admin" });
     }
   });
+  // Forgot password
+  app.post("/api/companies/forgot-password", async (req, res) => {
+    try {
+      const { correoElectronico, rfc, telefono } = req.body;
+      if (!correoElectronico || !rfc || !telefono) return res.status(400).json({ message: "Todos los campos son requeridos" });
+      const result = await db.execute(sql`SELECT id, rfc, telefono FROM companies WHERE LOWER(correo_electronico) = LOWER(${correoElectronico}) LIMIT 1`);
+      const company = result.rows[0] as any;
+      if (!company) return res.status(404).json({ message: "No se encontro una cuenta con ese correo" });
+      if (company.rfc?.toUpperCase() !== rfc?.toUpperCase()) return res.status(400).json({ message: "El RFC no coincide con el registrado" });
+      const dbPhone = (company.telefono || "").replace(/[^0-9]/g, "");
+      const inputPhone = (telefono || "").replace(/[^0-9]/g, "");
+      if (dbPhone !== inputPhone) return res.status(400).json({ message: "El telefono no coincide con el registrado" });
+      const tempPassword = Math.random().toString(36).slice(-8).toUpperCase();
+      const hashed = await hashPassword(tempPassword);
+      await db.execute(sql`UPDATE companies SET contrasena = ${hashed} WHERE id = ${company.id}`);
+      res.json({ message: "Contrasena restablecida", tempPassword });
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
 
   // Company login
   app.post("/api/companies/login", async (req, res) => {
