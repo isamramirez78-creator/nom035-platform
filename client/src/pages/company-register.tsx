@@ -210,7 +210,6 @@ export default function CompanyRegister() {
                           <FormControl>
                             <Input placeholder="555-123-4567" {...field} />
                           </FormControl>
-                          <FormDescription style={{color:"#F59E0B",fontSize:12}}>IMPORTANTE: se solicitará para recuperar tu contraseña junto con tu RFC.</FormDescription>
                           <FormMessage />
                         </FormItem>
                       )}
