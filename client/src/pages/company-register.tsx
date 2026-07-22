@@ -206,7 +206,7 @@ export default function CompanyRegister() {
                       control={form.control}
                       name="telefono"
                       render={({ field }) => (
-                          <FormLabel>Teléfono <span style={{color:"#EF4444"}}>*</span></FormLabel>
+                          <FormLabel>Telefono <span style={{color:"#EF4444"}}>*</span></FormLabel>
                           <FormControl>
                             <Input placeholder="555-123-4567" {...field} />
                           </FormControl>
