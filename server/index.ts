@@ -102,9 +102,6 @@ app.use((req, res, next) => {
     }
   });
 
-  app.post("/api/stripe/webhook", async (req: any, res: any) => {
-    res.status(200).json({ received: true });
-  });
 
   // Mantener MP endpoint por compatibilidad
   app.post("/api/mercadopago/crear-preferencia", (_req: any, res: any) => {
