@@ -49,6 +49,8 @@ app.use((req, res, next) => {
   app.post("/api/stripe/crear-sesion", async (req: any, res: any) => {
     try {
       const { plan, periodo } = req.body;
+      // Normalizar planId (ej: starter-monthly -> starter)
+      const planNorm = (plan || "").replace(/-monthly|-yearly|-annual/g, "").replace(/starter/,"basic");
       // Obtener email de la empresa desde el token
       let companyEmail = "";
       try {
@@ -66,7 +68,7 @@ app.use((req, res, next) => {
         professional: { monthly: 189900,  annual: 1936900 },
         enterprise:   { monthly: 349900,  annual: 3568900 },
       };
-      const precio = PRECIOS[plan]?.[periodo === "annual" ? "annual" : "monthly"];
+      const precio = PRECIOS[planNorm]?.[periodo === "annual" ? "annual" : "monthly"];
       if (!precio) return res.status(400).json({ message: "Plan o período inválido" });
 
       const PLAN_NAMES: Record<string, string> = { basic:"Básico", professional:"Profesional", enterprise:"Empresarial" };
@@ -90,7 +92,7 @@ app.use((req, res, next) => {
         customer_email: companyEmail || undefined,
         success_url: "https://nom035-platform-production.up.railway.app/pago-exitoso?session_id={CHECKOUT_SESSION_ID}",
         cancel_url: "https://nom035-platform-production.up.railway.app/pago-fallido",
-        metadata: { plan, periodo, email: companyEmail },
+        metadata: { plan: planNorm, periodo, email: companyEmail },
       });
 
       res.json({ sessionId: session.id, url: session.url });
