@@ -130,7 +130,7 @@ app.use((req, res, next) => {
   // Stripe webhook
   app.post("/api/stripe/webhook", express.raw({type: "application/json"}), async (req: any, res: any) => {
     const sig = req.headers["stripe-signature"];
-    process.stdout.write("WEBHOOK HIT body="+typeof req.body+" sig="+(req.headers["stripe-signature"]?"yes":"no")+"\n");
+    process.stderr.write("WEBHOOK HIT body="+typeof req.body+" sig="+(req.headers["stripe-signature"]?"yes":"no")+"\n");
     const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || "";
       console.log("WEBHOOK body type:", typeof req.body, "sig:", sig ? "present" : "missing", "secret:", webhookSecret ? "present" : "missing");
     try {
