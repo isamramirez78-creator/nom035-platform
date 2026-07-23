@@ -9,7 +9,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-app.use(express.json());
+app.use((req, res, next) => { if (req.originalUrl === "/api/stripe/webhook") return next(); express.json()(req, res, next); });
 app.use(express.urlencoded({ extended: false }));
 
 // File upload middleware
