@@ -49,6 +49,16 @@ app.use((req, res, next) => {
   app.post("/api/stripe/crear-sesion", async (req: any, res: any) => {
     try {
       const { plan, periodo } = req.body;
+      // Obtener email de la empresa desde el token
+      let companyEmail = "";
+      try {
+        const token = req.headers.authorization?.replace("Bearer ", "");
+        if (token) {
+          const { verifyToken } = await import("./auth.js");
+          const decoded = verifyToken(token) as any;
+          companyEmail = decoded?.email || "";
+        }
+      } catch {}
 
       // Precios en centavos (Stripe usa centavos)
       const PRECIOS: Record<string, Record<string, number>> = {
@@ -77,9 +87,10 @@ app.use((req, res, next) => {
           quantity: 1,
         }],
         mode: "payment",
+        customer_email: companyEmail || undefined,
         success_url: "https://nom035-platform-production.up.railway.app/pago-exitoso?session_id={CHECKOUT_SESSION_ID}",
         cancel_url: "https://nom035-platform-production.up.railway.app/pago-fallido",
-        metadata: { plan, periodo },
+        metadata: { plan, periodo, email: companyEmail },
       });
 
       res.json({ sessionId: session.id, url: session.url });
@@ -89,6 +100,9 @@ app.use((req, res, next) => {
     }
   });
 
+  app.post("/api/stripe/webhook", async (req: any, res: any) => {
+    res.status(200).json({ received: true });
+  });
 
   // Mantener MP endpoint por compatibilidad
   app.post("/api/mercadopago/crear-preferencia", (_req: any, res: any) => {
