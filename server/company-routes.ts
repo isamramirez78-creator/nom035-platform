@@ -118,7 +118,6 @@ export function registerCompanyRoutes(app: Express) {
       const result = await db.execute(sql`SELECT id, rfc, telefono FROM companies WHERE LOWER(correo_electronico) = LOWER(${correoElectronico}) LIMIT 1`);
       const company = result.rows[0] as any;
       console.log("FORGOT DEBUG:", JSON.stringify(company), "input rfc:", rfc);
-      if (!company) return res.status(404).json({ message: "No se encontro una cuenta con ese correo" });
       if ((company.rfc||"").trim().toUpperCase() !== (rfc||"").trim().toUpperCase()) return res.status(400).json({ message: "El RFC no coincide con el registrado" });
       const dbPhone = (company.telefono || "").replace(/[^0-9]/g, "");
       const inputPhone = (telefono || "").replace(/[^0-9]/g, "");
