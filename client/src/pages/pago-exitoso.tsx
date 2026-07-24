@@ -3,7 +3,6 @@ import { useLocation } from "wouter";
 
 export default function PagoExitoso() {
   const [, setLocation] = useLocation();
-  const [countdown, setCountdown] = useState(10);
   const [sessionData, setSessionData] = useState<any>(null);
   const [showFactura, setShowFactura] = useState(false);
   const [facturaForm, setFacturaForm] = useState({ rfc: "", razonSocial: "", usoCfdi: "G03", email: "" });
@@ -20,13 +19,6 @@ export default function PagoExitoso() {
         plan: localStorage.getItem("subscription_plan") || "Básico",
       });
     }
-    const timer = setInterval(() => {
-      setCountdown(c => {
-        if (c <= 1) { clearInterval(timer); setLocation("/company-login"); }
-        return c - 1;
-      });
-    }, 1000);
-    return () => clearInterval(timer);
   }, []);
 
   const handleSolicitarFactura = () => {
@@ -57,7 +49,7 @@ export default function PagoExitoso() {
         </div>
 
         {/* Recibo de pago */}
-        {sessionData && (
+        {
           <div style={{ background:"#F8FAFC", borderRadius:12, padding:"1.25rem", marginBottom:"1rem", border:"1px solid #E2E8F0" }}>
             <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:12 }}>
               <h3 style={{ color:"#1E3A5F", fontSize:14, fontWeight:700, margin:0 }}>Comprobante de pago</h3>
@@ -84,7 +76,7 @@ export default function PagoExitoso() {
               </p>
             </div>
           </div>
-        )}
+        }
 
         {/* Solicitar CFDI */}
         {!facturaEnviada ? (
@@ -150,13 +142,6 @@ export default function PagoExitoso() {
             </div>
           </div>
         )}
-
-        {/* Countdown */}
-        <div style={{ background:"#F8FAFC", borderRadius:12, padding:"0.75rem", marginBottom:"1rem", border:"0.5px solid #E2E8F0", textAlign:"center" }}>
-          <p style={{ color:"#64748B", fontSize:13, margin:0 }}>
-            Redirigiendo al inicio de sesión en <strong style={{ color:"#1E3A5F" }}>{countdown}</strong> segundos...
-          </p>
-        </div>
 
         <button onClick={() => setLocation("/company-login")}
           style={{ width:"100%", background:"#1E3A5F", color:"white", border:"none", borderRadius:10, padding:"12px", fontSize:15, fontWeight:600, cursor:"pointer" }}>
