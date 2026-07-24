@@ -92,7 +92,7 @@ app.use((req, res, next) => {
           const { Pool } = await import("pg");
           const pgPool = new Pool({ connectionString: process.env.DATABASE_URL });
           await pgPool.query(
-            "UPDATE companies SET subscription_status = $1, subscription_plan = $2, subscription_end_date = NOW() + INTERVAL \'1 year\' WHERE LOWER(correo_electronico) = LOWER($3)",
+            "UPDATE companies SET subscription_status = $1, subscription_plan = $2, subscription_end_date = NOW() + INTERVAL " + "'1 year' WHERE LOWER(correo_electronico) = LOWER($3)",
             ["active", plan, companyEmail]
           );
           await pgPool.end();
