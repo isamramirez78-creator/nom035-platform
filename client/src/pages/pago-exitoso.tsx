@@ -49,7 +49,7 @@ export default function PagoExitoso() {
         </div>
 
         {/* Recibo de pago */}
-        {
+        {sessionData && (
           <div style={{ background:"#F8FAFC", borderRadius:12, padding:"1.25rem", marginBottom:"1rem", border:"1px solid #E2E8F0" }}>
             <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:12 }}>
               <h3 style={{ color:"#1E3A5F", fontSize:14, fontWeight:700, margin:0 }}>Comprobante de pago</h3>
