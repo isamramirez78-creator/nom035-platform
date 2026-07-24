@@ -160,9 +160,10 @@ app.use((req, res, next) => {
         const plan = session.metadata?.plan || "starter";
         const companyEmail = session.customer_email || session.metadata?.email;
         if (companyEmail) {
-          const { db } = await import("./db.js");
-          const { sql } = await import("drizzle-orm");
-          await db.execute(sql`UPDATE companies SET subscription_status = 'active', subscription_plan = ${plan}, subscription_end_date = NOW() + INTERVAL '1 year' WHERE LOWER(correo_electronico) = LOWER(${companyEmail})`);
+          const { Pool } = await import("pg");
+          const pgPool = new Pool({ connectionString: process.env.DATABASE_URL });
+          await pgPool.query("UPDATE companies SET subscription_status = $1, subscription_plan = $2, subscription_end_date = NOW() + INTERVAL '1 year' WHERE LOWER(correo_electronico) = LOWER($3)", ["active", plan, companyEmail]);
+          await pgPool.end();
           console.log("Empresa activada:", companyEmail, plan);
         }
       }
