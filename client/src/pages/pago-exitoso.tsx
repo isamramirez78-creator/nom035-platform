@@ -31,7 +31,25 @@ export default function PagoExitoso() {
   const fecha = new Date().toLocaleDateString("es-MX", { year:"numeric", month:"long", day:"numeric" });
   const hora = new Date().toLocaleTimeString("es-MX");
 
-  const handleEnviarSolicitud = () => {
+  const handleEnviarSolicitud = async () => {
+    try {
+      await fetch("/api/cfdi-requests", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(localStorage.getItem("company_token") ? { Authorization: "Bearer " + localStorage.getItem("company_token") } : {}),
+        },
+        body: JSON.stringify({
+          rfc: facturaForm.rfc,
+          razonSocial: facturaForm.razonSocial,
+          regimenFiscal: facturaForm.regimenFiscal,
+          codigoPostal: facturaForm.codigoPostal,
+          usoCfdi: facturaForm.usoCfdi,
+          emailEnvio: facturaForm.email,
+          sessionId: sessionId || "",
+        }),
+      });
+    } catch (_e) {}
     setFacturaEnviada(true);
     setShowFactura(false);
   };

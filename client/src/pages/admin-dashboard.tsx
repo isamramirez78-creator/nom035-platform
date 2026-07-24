@@ -1,3 +1,4 @@
+import React from "react";
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
@@ -11,6 +12,76 @@ const PLAN_LABELS: Record<string, string> = { trial: "Prueba", basic: "Básico",
 const PLAN_COLORS: Record<string, string> = { trial: "#64748B", basic: "#3B82F6", starter: "#3B82F6", professional: "#8B5CF6", enterprise: "#F59E0B" };
 
 function logout() { localStorage.removeItem("admin_token"); window.location.replace("/admin"); }
+
+function CfdiTab() {
+  const at = () => localStorage.getItem("admin_token");
+  const h = () => ({ "Content-Type": "application/json", ...(at() ? { Authorization: `Bearer ${at()}` } : {}) });
+  const [requests, setRequests] = React.useState<any[]>([]);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    fetch("/api/admin/cfdi-requests", { headers: h() })
+      .then(r => r.json()).then(d => { setRequests(Array.isArray(d) ? d : []); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, []);
+
+  const updateStatus = async (id: number, status: string) => {
+    await fetch(`/api/admin/cfdi-requests/${id}`, { method: "PATCH", headers: h(), body: JSON.stringify({ status }) });
+    setRequests(r => r.map(x => x.id === id ? { ...x, status } : x));
+  };
+
+  const STATUS_C: Record<string, string> = { pendiente: "#F59E0B", emitido: "#10B981", cancelado: "#EF4444" };
+
+  return (
+    <div>
+      <h3 style={{ color: "white", fontSize: 16, fontWeight: 700, marginBottom: 16 }}>
+        Solicitudes de CFDI — {requests.filter(r => r.status === "pendiente").length} pendientes
+      </h3>
+      <div style={{ background: "#1E293B", borderRadius: 16, overflow: "hidden", border: "1px solid #334155" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead>
+            <tr style={{ background: "#0F172A" }}>
+              {["Empresa", "RFC", "Razón Social", "Régimen", "CP", "Uso CFDI", "Email", "Fecha", "Estado", "Acción"].map(col => (
+                <th key={col} style={{ padding: "10px 12px", textAlign: "left", color: "#64748B", fontSize: 10, fontWeight: 600 }}>{col}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr><td colSpan={10} style={{ padding: "2rem", textAlign: "center", color: "#64748B" }}>Cargando...</td></tr>
+            ) : requests.length === 0 ? (
+              <tr><td colSpan={10} style={{ padding: "2rem", textAlign: "center", color: "#64748B" }}>No hay solicitudes</td></tr>
+            ) : requests.map((r: any, i: number) => (
+              <tr key={r.id} style={{ borderTop: "1px solid #334155", background: i % 2 === 0 ? "transparent" : "rgba(255,255,255,0.02)" }}>
+                <td style={{ padding: "10px 12px", color: "#94A3B8", fontSize: 11 }}>{r.empresa || "—"}</td>
+                <td style={{ padding: "10px 12px", color: "white", fontSize: 11, fontWeight: 600 }}>{r.rfc}</td>
+                <td style={{ padding: "10px 12px", color: "#94A3B8", fontSize: 11 }}>{r.razon_social}</td>
+                <td style={{ padding: "10px 12px", color: "#94A3B8", fontSize: 11 }}>{r.regimen_fiscal}</td>
+                <td style={{ padding: "10px 12px", color: "#94A3B8", fontSize: 11 }}>{r.codigo_postal}</td>
+                <td style={{ padding: "10px 12px", color: "#94A3B8", fontSize: 11 }}>{r.uso_cfdi}</td>
+                <td style={{ padding: "10px 12px", color: "#94A3B8", fontSize: 11 }}>{r.email_envio}</td>
+                <td style={{ padding: "10px 12px", color: "#64748B", fontSize: 11 }}>{r.created_at ? new Date(r.created_at).toLocaleDateString("es-MX") : "—"}</td>
+                <td style={{ padding: "10px 12px" }}>
+                  <span style={{ background: (STATUS_C[r.status] || "#64748B") + "20", color: STATUS_C[r.status] || "#64748B", borderRadius: 99, padding: "2px 8px", fontSize: 10, fontWeight: 600 }}>
+                    {r.status}
+                  </span>
+                </td>
+                <td style={{ padding: "10px 12px" }}>
+                  <select value={r.status} onChange={e => updateStatus(r.id, e.target.value)}
+                    style={{ background: "#0F172A", border: "1px solid #334155", borderRadius: 6, color: "white", fontSize: 11, padding: "2px 6px" }}>
+                    <option value="pendiente">Pendiente</option>
+                    <option value="emitido">Emitido</option>
+                    <option value="cancelado">Cancelado</option>
+                  </select>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
 
 function FacturacionTab({ companies }: { companies: any[] }) {
   const pendientes = companies.filter(c => !c.is_admin);
@@ -64,7 +135,7 @@ export default function AdminDashboard() {
   const [search, setSearch] = useState("");
   const [filterPlan, setFilterPlan] = useState("all");
   const [selected, setSelected] = useState<any>(null);
-  const [tab, setTab] = useState<"empresas" | "facturacion">("empresas");
+  const [tab, setTab] = useState<"empresas" | "facturacion" | "cfdi">("empresas");
 
   const { data: companies, isLoading } = useQuery<any[]>({
     queryKey: ["/api/admin/companies"],
@@ -134,7 +205,7 @@ export default function AdminDashboard() {
         {/* Tabs */}
         <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
           {([["empresas", "🏢 Empresas"], ["facturacion", "🧾 Facturación"]] as [string, string][]).map(([id, label]) => (
-            <button key={id} onClick={() => setTab(id as "empresas" | "facturacion")}
+            <button key={id} onClick={() => setTab(id as "empresas" | "facturacion" | "cfdi")}
               style={{ padding: "8px 20px", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 14, fontWeight: 600,
                 background: tab === id ? "#84CC16" : "rgba(255,255,255,0.05)", color: tab === id ? "#1E3A5F" : "#94A3B8" }}>
               {label}
@@ -142,7 +213,9 @@ export default function AdminDashboard() {
           ))}
         </div>
 
-        {tab === "facturacion" ? (
+        {tab === "cfdi" ? (
+          <CfdiTab />
+        ) : tab === "facturacion" ? (
           <FacturacionTab companies={filtered} />
         ) : (
           <div>

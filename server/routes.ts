@@ -1019,6 +1019,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // CFDI Requests
+  app.post("/api/cfdi-requests", async (req, res) => {
+    try {
+      const { rfc, razonSocial, regimenFiscal, codigoPostal, usoCfdi, emailEnvio, sessionId } = req.body;
+      const token = (req.headers.authorization || "").replace("Bearer ", "");
+      let companyId = null;
+      if (token) {
+        try {
+          const { verifyToken } = await import("./auth.js");
+          const decoded = verifyToken(token) as any;
+          companyId = decoded?.companyId || null;
+        } catch (_e) {}
+      }
+      const { db: dbCfdi } = await import("./db.js");
+      const { sql: sqlCfdi } = await import("drizzle-orm");
+      await dbCfdi.execute(sqlCfdi`
+        INSERT INTO cfdi_requests (company_id, rfc, razon_social, regimen_fiscal, codigo_postal, uso_cfdi, email_envio, session_id)
+        VALUES (${companyId}, ${rfc}, ${razonSocial}, ${regimenFiscal}, ${codigoPostal}, ${usoCfdi}, ${emailEnvio}, ${sessionId})
+      `);
+      res.json({ message: "Solicitud de CFDI registrada correctamente" });
+    } catch (e: any) {
+      res.status(500).json({ message: e.message });
+    }
+  });
+
+  app.get("/api/admin/cfdi-requests", async (req, res) => {
+    try {
+      const token = (req.headers.authorization || "").replace("Bearer ", "");
+      const { verifyAdminToken } = await import("./auth.js");
+      verifyAdminToken(token);
+      const { db: dbCfdi } = await import("./db.js");
+      const { sql: sqlCfdi } = await import("drizzle-orm");
+      const result = await dbCfdi.execute(sqlCfdi`
+        SELECT cr.*, c.razon_social as empresa, c.correo_electronico
+        FROM cfdi_requests cr
+        LEFT JOIN companies c ON c.id = cr.company_id
+        ORDER BY cr.created_at DESC
+      `);
+      res.json(result.rows);
+    } catch (e: any) {
+      res.status(500).json({ message: e.message });
+    }
+  });
+
+  app.patch("/api/admin/cfdi-requests/:id", async (req, res) => {
+    try {
+      const token = (req.headers.authorization || "").replace("Bearer ", "");
+      const { verifyAdminToken } = await import("./auth.js");
+      verifyAdminToken(token);
+      const { status } = req.body;
+      const { db: dbCfdi } = await import("./db.js");
+      const { sql: sqlCfdi } = await import("drizzle-orm");
+      await dbCfdi.execute(sqlCfdi`UPDATE cfdi_requests SET status = ${status} WHERE id = ${parseInt(req.params.id)}`);
+      res.json({ message: "Actualizado" });
+    } catch (e: any) {
+      res.status(500).json({ message: e.message });
+    }
+  });
+
   // Compliance metrics endpoint
   app.get("/api/compliance/metrics", async (req, res) => {
     try {
@@ -1537,4 +1596,3 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   return httpServer;
 }
-// force 1784764587
