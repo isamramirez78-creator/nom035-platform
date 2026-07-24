@@ -187,7 +187,7 @@ export default function SubscriptionPlans() {
     mutationFn: async (planId: string) => {
       const res = await fetch("/api/stripe/crear-sesion", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(localStorage.getItem("company_token") ? { Authorization: "Bearer " + localStorage.getItem("company_token") } : {}) },
         body: JSON.stringify({ plan: planId, periodo: isYearly ? "annual" : "monthly" }),
       });
       return res.json();
