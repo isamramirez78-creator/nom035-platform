@@ -76,7 +76,7 @@ export default function PagoExitoso() {
               </p>
             </div>
           </div>
-        }
+        )}
 
         {/* Solicitar CFDI */}
         {!facturaEnviada ? (
