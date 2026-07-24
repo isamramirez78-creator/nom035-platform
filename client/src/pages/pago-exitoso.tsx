@@ -3,36 +3,163 @@ import { useLocation } from "wouter";
 
 export default function PagoExitoso() {
   const [, setLocation] = useLocation();
-  const [countdown, setCountdown] = useState(5);
+  const [countdown, setCountdown] = useState(10);
+  const [sessionData, setSessionData] = useState<any>(null);
+  const [showFactura, setShowFactura] = useState(false);
+  const [facturaForm, setFacturaForm] = useState({ rfc: "", razonSocial: "", usoCfdi: "G03", email: "" });
+  const [facturaEnviada, setFacturaEnviada] = useState(false);
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const sessionId = params.get("session_id");
+    if (sessionId) {
+      setSessionData({
+        sessionId,
+        fecha: new Date().toLocaleDateString("es-MX", { year:"numeric", month:"long", day:"numeric" }),
+        hora: new Date().toLocaleTimeString("es-MX"),
+        plan: localStorage.getItem("subscription_plan") || "Básico",
+      });
+    }
     const timer = setInterval(() => {
       setCountdown(c => {
-        if (c <= 1) { clearInterval(timer); setLocation("/login"); }
+        if (c <= 1) { clearInterval(timer); setLocation("/company-login"); }
         return c - 1;
       });
     }, 1000);
     return () => clearInterval(timer);
   }, []);
 
+  const handleSolicitarFactura = () => {
+    const rfc = localStorage.getItem("company_rfc") || "";
+    const razonSocial = localStorage.getItem("company_name") || "";
+    setFacturaForm(f => ({ ...f, rfc, razonSocial }));
+    setShowFactura(true);
+  };
+
+  const handleEnviarSolicitud = () => {
+    setFacturaEnviada(true);
+    setShowFactura(false);
+  };
+
   return (
-    <div style={{ minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center", background:"linear-gradient(135deg,#F0FDF4,#ECFCCB)", fontFamily:"Inter,sans-serif" }}>
-      <div style={{ background:"white", borderRadius:20, padding:"2.5rem", maxWidth:500, width:"100%", textAlign:"center", boxShadow:"0 8px 32px rgba(0,0,0,0.08)" }}>
-        <div style={{ width:80, height:80, background:"#ECFCCB", borderRadius:"50%", display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto 1.5rem" }}>
-          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#16A34A" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+    <div style={{ minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center", background:"linear-gradient(135deg,#F0FDF4,#ECFCCB)", fontFamily:"Inter,sans-serif", padding:"1rem" }}>
+      <div style={{ background:"white", borderRadius:20, padding:"2.5rem", maxWidth:520, width:"100%", boxShadow:"0 8px 32px rgba(0,0,0,0.08)" }}>
+        
+        {/* Header */}
+        <div style={{ textAlign:"center", marginBottom:"1.5rem" }}>
+          <div style={{ width:80, height:80, background:"#ECFCCB", borderRadius:"50%", display:"flex", alignItems:"center", justifyContent:"center", margin:"0 auto 1rem" }}>
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#16A34A" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+          </div>
+          <h1 style={{ color:"#1E3A5F", fontSize:26, fontWeight:700, marginBottom:8 }}>¡Pago exitoso!</h1>
+          <p style={{ color:"#64748B", fontSize:14, lineHeight:1.6, margin:0 }}>
+            Tu suscripción a la plataforma NOM-035 ha sido activada correctamente.
+          </p>
         </div>
-        <h1 style={{ color:"#1E3A5F", fontSize:26, fontWeight:700, marginBottom:8 }}>¡Pago exitoso!</h1>
-        <p style={{ color:"#64748B", fontSize:15, lineHeight:1.6, marginBottom:20 }}>
-          Tu suscripción a la plataforma NOM-035 ha sido activada correctamente.
-          Revisa tu correo electrónico para confirmar los detalles de tu cuenta.
-        </p>
-        <div style={{ background:"#F8FAFC", borderRadius:12, padding:"1rem", marginBottom:20, border:"0.5px solid #E2E8F0" }}>
+
+        {/* Recibo de pago */}
+        {sessionData && (
+          <div style={{ background:"#F8FAFC", borderRadius:12, padding:"1.25rem", marginBottom:"1rem", border:"1px solid #E2E8F0" }}>
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:12 }}>
+              <h3 style={{ color:"#1E3A5F", fontSize:14, fontWeight:700, margin:0 }}>Comprobante de pago</h3>
+              <span style={{ background:"#ECFCCB", color:"#15803D", borderRadius:99, padding:"2px 10px", fontSize:11, fontWeight:600 }}>Pagado</span>
+            </div>
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:8 }}>
+              {[
+                ["Fecha", sessionData.fecha],
+                ["Hora", sessionData.hora],
+                ["Plan", sessionData.plan],
+                ["ID de sesión", sessionData.sessionId.slice(0,20) + "..."],
+              ].map(([label, value]) => (
+                <div key={label}>
+                  <p style={{ color:"#94A3B8", fontSize:10, fontWeight:600, margin:"0 0 2px", textTransform:"uppercase" }}>{label}</p>
+                  <p style={{ color:"#1E3A5F", fontSize:12, fontWeight:600, margin:0 }}>{value}</p>
+                </div>
+              ))}
+            </div>
+            <div style={{ borderTop:"1px solid #E2E8F0", marginTop:12, paddingTop:10 }}>
+              <p style={{ color:"#64748B", fontSize:11, margin:0 }}>
+                Para el comprobante fiscal oficial de Stripe, visita{" "}
+                <a href="https://dashboard.stripe.com/receipts" target="_blank" rel="noopener noreferrer"
+                  style={{ color:"#1E40AF" }}>dashboard.stripe.com/receipts</a>
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Solicitar CFDI */}
+        {!facturaEnviada ? (
+          <div style={{ background:"#EFF6FF", borderRadius:12, padding:"1rem", marginBottom:"1rem", border:"1px solid #BFDBFE" }}>
+            <p style={{ color:"#1E40AF", fontSize:13, fontWeight:600, margin:"0 0 8px" }}>
+              ¿Necesitas factura CFDI?
+            </p>
+            <p style={{ color:"#3B82F6", fontSize:12, margin:"0 0 10px" }}>
+              Solicita tu comprobante fiscal y te lo enviamos en un máximo de 24 horas hábiles.
+            </p>
+            <button onClick={handleSolicitarFactura}
+              style={{ background:"#1E40AF", color:"white", border:"none", borderRadius:8, padding:"8px 16px", fontSize:13, fontWeight:600, cursor:"pointer" }}>
+              Solicitar factura CFDI
+            </button>
+          </div>
+        ) : (
+          <div style={{ background:"#ECFCCB", borderRadius:12, padding:"1rem", marginBottom:"1rem", border:"1px solid #BBF7D0" }}>
+            <p style={{ color:"#15803D", fontSize:13, fontWeight:600, margin:0 }}>
+              ✅ Solicitud de factura enviada. La recibirás en tu correo en máximo 24 horas hábiles.
+            </p>
+          </div>
+        )}
+
+        {/* Modal solicitud factura */}
+        {showFactura && (
+          <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.5)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:50, padding:"1rem" }}>
+            <div style={{ background:"white", borderRadius:16, padding:"1.5rem", width:"100%", maxWidth:420 }}>
+              <h3 style={{ color:"#1E3A5F", fontSize:16, fontWeight:700, marginBottom:16 }}>Solicitar factura CFDI</h3>
+              <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
+                {[
+                  { label:"RFC", key:"rfc", placeholder:"XAXX010101000" },
+                  { label:"Razón Social", key:"razonSocial", placeholder:"MI EMPRESA SA DE CV" },
+                  { label:"Correo para envío", key:"email", placeholder:"facturacion@empresa.com", type:"email" },
+                ].map(f => (
+                  <div key={f.key}>
+                    <label style={{ display:"block", fontSize:12, fontWeight:600, color:"#1E3A5F", marginBottom:4 }}>{f.label}</label>
+                    <input value={(facturaForm as any)[f.key]} type={f.type || "text"} placeholder={f.placeholder}
+                      onChange={e => setFacturaForm(prev => ({ ...prev, [f.key]: e.target.value }))}
+                      style={{ width:"100%", padding:"8px 12px", borderRadius:8, border:"1px solid #E2E8F0", fontSize:13, boxSizing:"border-box" as const }} />
+                  </div>
+                ))}
+                <div>
+                  <label style={{ display:"block", fontSize:12, fontWeight:600, color:"#1E3A5F", marginBottom:4 }}>Uso de CFDI</label>
+                  <select value={facturaForm.usoCfdi} onChange={e => setFacturaForm(f => ({ ...f, usoCfdi: e.target.value }))}
+                    style={{ width:"100%", padding:"8px 12px", borderRadius:8, border:"1px solid #E2E8F0", fontSize:13 }}>
+                    <option value="G03">G03 - Gastos en general</option>
+                    <option value="I04">I04 - Equipo de cómputo</option>
+                    <option value="S01">S01 - Sin efectos fiscales</option>
+                    <option value="CP01">CP01 - Pagos</option>
+                  </select>
+                </div>
+              </div>
+              <div style={{ display:"flex", gap:10, marginTop:16 }}>
+                <button onClick={() => setShowFactura(false)}
+                  style={{ flex:1, background:"#F1F5F9", color:"#64748B", border:"none", borderRadius:8, padding:"10px", fontSize:13, cursor:"pointer" }}>
+                  Cancelar
+                </button>
+                <button onClick={handleEnviarSolicitud}
+                  style={{ flex:1, background:"#1E3A5F", color:"white", border:"none", borderRadius:8, padding:"10px", fontSize:13, fontWeight:600, cursor:"pointer" }}>
+                  Enviar solicitud
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Countdown */}
+        <div style={{ background:"#F8FAFC", borderRadius:12, padding:"0.75rem", marginBottom:"1rem", border:"0.5px solid #E2E8F0", textAlign:"center" }}>
           <p style={{ color:"#64748B", fontSize:13, margin:0 }}>
             Redirigiendo al inicio de sesión en <strong style={{ color:"#1E3A5F" }}>{countdown}</strong> segundos...
           </p>
         </div>
-        <button onClick={() => setLocation("/login")}
-          style={{ background:"#1E3A5F", color:"white", border:"none", borderRadius:10, padding:"12px 32px", fontSize:15, fontWeight:600, cursor:"pointer" }}>
+
+        <button onClick={() => setLocation("/company-login")}
+          style={{ width:"100%", background:"#1E3A5F", color:"white", border:"none", borderRadius:10, padding:"12px", fontSize:15, fontWeight:600, cursor:"pointer" }}>
           Iniciar sesión ahora
         </button>
       </div>
