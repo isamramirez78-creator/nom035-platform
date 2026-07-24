@@ -9,24 +9,25 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-app.use(express.json());
+
+// Skip express.json for webhook route so body is received raw
+app.use((req, res, next) => {
+  if (req.originalUrl === "/api/stripe/webhook") return next();
+  express.json()(req, res, next);
+});
 app.use(express.urlencoded({ extended: false }));
 
-// File upload middleware
 app.use(fileUpload({ limits: { fileSize: 10 * 1024 * 1024 }, useTempFiles: false }));
 
-// Health check — ANTES de todo para que Railway lo detecte
-app.get("/api/health", (_req, res) => {
-  res.json({ status: "ok", timestamp: new Date().toISOString() });
-});
-
-// Servir plantillas NOM-035 como archivos estáticos
-app.use("/plantillas", express.static(path.resolve(__dirname, "..", "public", "plantillas")));
+const uploadsDir = path.resolve(__dirname, "..", "public", "uploads");
+const plantillasDir = path.resolve(__dirname, "..", "public", "plantillas");
+app.use("/uploads", express.static(uploadsDir));
+app.use("/plantillas", express.static(plantillasDir));
 
 app.use((req, res, next) => {
   const start = Date.now();
-  const p = req.path;
-  let capturedJsonResponse: Record<string, any> | undefined = undefined;
+  const path2 = req.path;
+  let capturedJsonResponse: Record<string, unknown> | undefined = undefined;
   const originalResJson = res.json;
   res.json = function (bodyJson, ...args) {
     capturedJsonResponse = bodyJson;
@@ -34,9 +35,11 @@ app.use((req, res, next) => {
   };
   res.on("finish", () => {
     const duration = Date.now() - start;
-    if (p.startsWith("/api")) {
-      let logLine = `${req.method} ${p} ${res.statusCode} in ${duration}ms`;
-      if (capturedJsonResponse) logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
+    if (path2.startsWith("/api")) {
+      let logLine = `${req.method} ${path2} ${res.statusCode} in ${duration}ms`;
+      if (capturedJsonResponse) {
+        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
+      }
       if (logLine.length > 80) logLine = logLine.slice(0, 79) + "…";
       log(logLine);
     }
@@ -45,7 +48,6 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  // Stripe — pagos con tarjeta
   app.post("/api/stripe/crear-sesion", async (req: any, res: any) => {
     try {
       const { plan, periodo } = req.body;
@@ -69,50 +71,14 @@ app.use((req, res, next) => {
       const precio = PRECIOS[plan]?.[periodo === "annual" ? "annual" : "monthly"];
       if (!precio) return res.status(400).json({ message: "Plan o período inválido" });
 
-      const PLAN_NAMES: Record<string, string> = { basic:"Básico", professional:"Profesional", enterprise:"Empresarial" };
-      const Stripe = await import("stripe");
-      const stripe = new (Stripe.default || Stripe)(process.env.STRIPE_SECRET_KEY || "", { apiVersion: "2024-06-20" as any });
-
-      const session = await stripe.checkout.sessions.create({
-        payment_method_types: ["card"],
-        line_items: [{
-          price_data: {
-            currency: "mxn",
-            product_data: {
-              name: `NOM-035 Platform — Plan ${PLAN_NAMES[plan]}`,
-              description: `Suscripción ${periodo === "annual" ? "anual" : "mensual"} — Cumplimiento NOM-035-STPS-2018`,
-            },
-            unit_amount: precio,
-          },
-          quantity: 1,
-        }],
-        mode: "payment",
-        customer_email: companyEmail || undefined,
-        success_url: "https://nom035-platform-production.up.railway.app/pago-exitoso?session_id={CHECKOUT_SESSION_ID}",
-        cancel_url: "https://nom035-platform-production.up.railway.app/pago-fallido",
-        metadata: { plan, periodo, email: companyEmail },
-      });
-
-      res.json({ sessionId: session.id, url: session.url });
-    } catch (e: any) {
-      console.error("Stripe error:", e.message);
-      res.status(500).json({ message: e.message });
-    }
-  });
-
-  app.post("/api/stripe/webhook", async (req: any, res: any) => {
-    res.status(200).json({ received: true });
-  });
-
-  // Mantener MP endpoint por compatibilidad
   app.post("/api/mercadopago/crear-preferencia", (_req: any, res: any) => {
-    res.status(503).json({ message: "Mercado Pago no disponible, use Stripe" });
+    res.status(503).json({ message: "MercadoPago no disponible" });
   });
 
-  // Stripe webhook
+  // Stripe webhook - must be before registerRoutes and serveStatic
   app.post("/api/stripe/webhook", express.raw({type: "application/json"}), async (req: any, res: any) => {
     const sig = req.headers["stripe-signature"];
-    process.stderr.write("WEBHOOK HIT body="+typeof req.body+" sig="+(req.headers["stripe-signature"]?"yes":"no")+"\n");
+    process.stderr.write("WEBHOOK HIT body="+typeof req.body+" sig="+(sig?"yes":"no")+"\n");
     const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || "";
     try {
       const Stripe = await import("stripe");
@@ -123,15 +89,19 @@ app.use((req, res, next) => {
         const plan = session.metadata?.plan || "starter";
         const companyEmail = session.customer_email || session.metadata?.email;
         if (companyEmail) {
-          const { db } = await import("./db.js");
-          const { sql } = await import("drizzle-orm");
-          await db.execute(sql`UPDATE companies SET subscription_status = 'active', subscription_plan = ${plan}, subscription_end_date = NOW() + INTERVAL '1 year' WHERE LOWER(correo_electronico) = LOWER(${companyEmail})`);
-          console.log("Empresa activada:", companyEmail, plan);
+          const { Pool } = await import("pg");
+          const pgPool = new Pool({ connectionString: process.env.DATABASE_URL });
+          await pgPool.query(
+            "UPDATE companies SET subscription_status = $1, subscription_plan = $2, subscription_end_date = NOW() + INTERVAL \'1 year\' WHERE LOWER(correo_electronico) = LOWER($3)",
+            ["active", plan, companyEmail]
+          );
+          await pgPool.end();
+          process.stderr.write("Empresa activada: "+companyEmail+" "+plan+"\n");
         }
       }
       res.json({ received: true });
     } catch (e: any) {
-      console.error("Webhook error:", e.message);
+      process.stderr.write("Webhook error: "+e.message+"\n");
       res.status(400).json({ error: e.message });
     }
   });
@@ -154,24 +124,5 @@ app.use((req, res, next) => {
   const port = parseInt(process.env.PORT || "5000");
   server.listen({ port, host: "0.0.0.0", reusePort: true }, () => {
     log(`serving on port ${port}`);
-  });const event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
-      if (event.type === "checkout.session.completed") {
-        const session = event.data.object as any;
-        const plan = session.metadata?.plan || "starter";
-        const companyEmail = session.customer_email || session.metadata?.email;
-        if (companyEmail) {
-          const { Pool } = await import("pg");
-          const pgPool = new Pool({ connectionString: process.env.DATABASE_URL });
-          await pgPool.query("UPDATE companies SET subscription_status = $1, subscription_plan = $2, subscription_end_date = NOW() + INTERVAL '1 year' WHERE LOWER(correo_electronico) = LOWER($3)", ["active", plan, companyEmail]);
-          await pgPool.end();
-          console.log("Empresa activada:", companyEmail, plan);
-        }
-      }
-      res.json({ received: true });
-    } catch (e: any) {
-      console.error("Webhook error:", e.message);
-      res.status(400).json({ error: e.message });
-    }
   });
-
 })();
