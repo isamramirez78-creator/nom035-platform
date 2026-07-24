@@ -56,6 +56,23 @@ export function registerCompanyRoutes(app: Express) {
   });
 
   // ── Crear cuenta de Admin (un solo uso, protegida por clave secreta) ──────
+  // Admin login
+  app.post("/api/admin/login", async (req, res) => {
+    try {
+      const { email, password } = req.body;
+      const { db: dbA } = await import("./db.js");
+      const { sql: sqlA } = await import("drizzle-orm");
+      const result = await dbA.execute(sqlA`SELECT * FROM admin_users WHERE email = ${email} LIMIT 1`);
+      const admin = result.rows[0] as any;
+      if (!admin) return res.status(401).json({ message: "Credenciales incorrectas" });
+      const { verifyPassword, generateAdminToken } = await import("./auth.js");
+      const valid = await verifyPassword(password, admin.password_hash);
+      if (!valid) return res.status(401).json({ message: "Credenciales incorrectas" });
+      const token = generateAdminToken(admin.id, admin.email);
+      res.json({ token, admin: { id: admin.id, email: admin.email } });
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
   // Llamar UNA VEZ desde Postman/curl: POST /api/admin/seed con header x-setup-key
   app.post("/api/admin/seed", async (req, res) => {
     try {
