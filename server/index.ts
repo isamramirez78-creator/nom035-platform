@@ -114,7 +114,6 @@ app.use((req, res, next) => {
     const sig = req.headers["stripe-signature"];
     process.stderr.write("WEBHOOK HIT body="+typeof req.body+" sig="+(req.headers["stripe-signature"]?"yes":"no")+"\n");
     const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET || "";
-      console.log("WEBHOOK body type:", typeof req.body, "sig:", sig ? "present" : "missing", "secret:", webhookSecret ? "present" : "missing");
     try {
       const Stripe = await import("stripe");
       const stripe = new (Stripe.default || Stripe as any)(process.env.STRIPE_SECRET_KEY || "", { apiVersion: "2024-06-20" as any });
