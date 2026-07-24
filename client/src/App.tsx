@@ -128,6 +128,10 @@ function App() {
           <Route path="/interventions"        component={InterventionsRoute} />
           <Route path="/company-profile"      component={ProfileRoute} />
           <Route path="/notifications"        component={NotificationsRoute} />
+          <Route path="/admin" component={() => <Suspense fallback={<Loading />}><AdminLogin /></Suspense>} />
+          <Route path="/admin-dashboard" component={() => <Suspense fallback={<Loading />}><AdminDashboard /></Suspense>} />
+          <Route component={() => <div style={{padding:"2rem",fontFamily:"Inter,sans-serif"}}><h2>404 — Página no encontrada</h2><a href="/">Ir al inicio</a></div>} />
+          <Route component={() => <div style={{padding:"2rem",fontFamily:"Inter,sans-serif"}}><h2>404 — Página no encontrada</h2><a href="/">Ir al inicio</a></div>} />
           <Route component={() => <div style={{padding:"2rem",fontFamily:"Inter,sans-serif"}}><h2>404 — Página no encontrada</h2><a href="/">Ir al inicio</a></div>} />
         </Switch>
       </TooltipProvider>
