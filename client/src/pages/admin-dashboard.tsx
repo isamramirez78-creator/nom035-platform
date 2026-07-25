@@ -204,7 +204,7 @@ export default function AdminDashboard() {
 
         {/* Tabs */}
         <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
-          {([["empresas", "🏢 Empresas"], ["facturacion", "🧾 Facturación"]] as [string, string][]).map(([id, label]) => (
+          {([["empresas", "🏢 Empresas"], ["facturacion", "🧾 Facturacion"], ["cfdi", "Solicitudes CFDI"]] as [string, string][]).map(([id, label]) => (
             <button key={id} onClick={() => setTab(id as "empresas" | "facturacion" | "cfdi")}
               style={{ padding: "8px 20px", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 14, fontWeight: 600,
                 background: tab === id ? "#84CC16" : "rgba(255,255,255,0.05)", color: tab === id ? "#1E3A5F" : "#94A3B8" }}>
