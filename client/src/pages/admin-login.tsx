@@ -21,7 +21,7 @@ export default function AdminLogin() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Credenciales incorrectas");
       localStorage.setItem("admin_token", data.token);
-      window.location.replace("/admin/dashboard");
+      window.location.replace("/admin-dashboard");
     } catch (e: Error | any) {
       toast({ title: "Error", description: e.message, variant: "destructive" });
     } finally {
