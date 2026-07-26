@@ -91,12 +91,11 @@ export default function PagoExitoso() {
               </div>
             ))}
           </div>
-          <div style={{ borderTop:"1px solid #E2E8F0", paddingTop:10 }}>
-            <p style={{ color:"#64748B", fontSize:11, margin:0 }}>
-              Para el recibo oficial de Stripe:{" "}
-              <a href="https://dashboard.stripe.com/receipts" target="_blank" rel="noopener noreferrer"
-                style={{ color:"#1E40AF" }}>dashboard.stripe.com/receipts</a>
-            </p>
+          <div style={{ borderTop:"1px solid #E2E8F0", paddingTop:10, display:"flex", justifyContent:"flex-end" }}>
+            <button onClick={() => window.print()}
+              style={{ background:"#1E3A5F", color:"white", border:"none", borderRadius:8, padding:"6px 16px", fontSize:12, fontWeight:600, cursor:"pointer" }}>
+              🖨️ Imprimir comprobante
+            </button>
           </div>
         </div>
 
