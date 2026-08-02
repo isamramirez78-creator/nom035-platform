@@ -73,13 +73,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   }
 
   // Employee routes
-  app.get("/api/employees", async (req, res) => {
+  app.get("/api/employees", authenticateCompany, async (req, res) => {
     try {
-      const employees = await storage.getAllEmployees();
-      res.json(employees);
-    } catch (error) {
-      res.status(500).json({ message: "Error fetching employees" });
-    }
+      const companyId = req.company?.id;
+      const { db: dbE } = await import("./db.js");
+      const { sql: sqlE } = await import("drizzle-orm");
+      const result = await dbE.execute(sqlE`SELECT * FROM employees WHERE company_id = ${companyId} ORDER BY created_at DESC`);
+      res.json(result.rows);
+    } catch (error) { res.status(500).json({ message: "Error fetching employees" }); }
   });
 
   app.get("/api/employees/:id", async (req, res) => {
@@ -185,14 +186,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Evaluation routes
-  app.get("/api/evaluations", async (req, res) => {
+  app.get("/api/evaluations", authenticateCompany, async (req, res) => {
     try {
-      const evaluations = await storage.getAllEvaluations();
-      res.json(evaluations);
-    } catch (error) {
-      console.error("Error fetching evaluations:", error);
-      res.status(500).json({ message: "Error fetching evaluations" });
-    }
+      const companyId = req.company?.id;
+      const { db: dbEv } = await import("./db.js");
+      const { sql: sqlEv } = await import("drizzle-orm");
+      const result = await dbEv.execute(sqlEv`SELECT e.*, emp.nombre, emp.apellidos FROM evaluations e LEFT JOIN employees emp ON emp.id = e.employee_id WHERE e.company_id = ${companyId} ORDER BY e.created_at DESC`);
+      res.json(result.rows);
+    } catch (error) { res.status(500).json({ message: "Error fetching evaluations" }); }
   });
 
   app.get("/api/evaluations/employee/:employeeId", async (req, res) => {
@@ -422,14 +423,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Analytics and stats
-  app.get("/api/stats", async (req, res) => {
+  app.get("/api/stats", authenticateCompany, async (req, res) => {
     try {
-      const stats = await storage.getEvaluationStats();
-      res.json(stats);
-    } catch (error) {
-      console.error("Stats error:", error);
-      res.status(500).json({ message: "Error fetching statistics", error: error.message });
-    }
+      const companyId = req.company?.id;
+      const { db: dbS } = await import("./db.js");
+      const { sql: sqlS } = await import("drizzle-orm");
+      const empR = await dbS.execute(sqlS`SELECT COUNT(*) as count FROM employees WHERE company_id = ${companyId}`);
+      const evalR = await dbS.execute(sqlS`SELECT COUNT(*) as count FROM evaluations WHERE company_id = ${companyId} AND completed = true`);
+      const riskR = await dbS.execute(sqlS`SELECT risk_level, COUNT(*) as count FROM evaluations WHERE company_id = ${companyId} AND completed = true GROUP BY risk_level`);
+      const totalEmp = parseInt(empR.rows[0].count || 0);
+      const totalEval = parseInt(evalR.rows[0].count || 0);
+      const riskDist = riskR.rows.reduce((acc,r) => { acc[r.risk_level]=parseInt(r.count||0); return acc; }, {});
+      res.json({ totalEmployees: totalEmp, evaluationsCompleted: totalEval, pendingEvaluations: Math.max(0,totalEmp-totalEval), coveragePercentage: totalEmp>0?Math.round(totalEval/totalEmp*100):0, riskDistribution: riskDist });
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
   });
 
   // Employee Files routes
