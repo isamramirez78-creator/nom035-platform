@@ -1016,9 +1016,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Company profile alias
-  app.get("/api/companies/profile", async (req, res) => {
+  app.get("/api/companies/profile", authenticateCompany, async (req, res) => {
     try {
-      const company = await storage.getCompanyById(1);
+      const companyId = req.company?.id;
+      const company = await storage.getCompanyById(companyId);
       res.json(company);
     } catch (error) {
       res.status(500).json({ message: "Error fetching company profile" });
@@ -1172,7 +1173,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/company-info", async (req, res) => {
     try {
       // En un entorno real, esto vendría de la sesión autenticada
-      const companyId = 1;
+      const companyId = req.company?.id;
       const company = await storage.getCompanyById(companyId);
       res.json(company);
     } catch (error) {
@@ -1184,7 +1185,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/compliance/nom035-status", async (req, res) => {
     try {
       // Calcular estado de cumplimiento NOM-035
-      const companyId = 1;
+      const companyId = req.company?.id;
       const company = await storage.getCompanyById(companyId);
       const employees = await storage.getAllEmployees();
       const evaluations = await storage.getAllEvaluations();
@@ -1210,7 +1211,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/compliance/update", async (req, res) => {
     try {
       const { type, data } = req.body;
-      const companyId = 1;
+      const companyId = req.company?.id;
       
       if (type === 'policy') {
         await storage.updateCompany(companyId, {
