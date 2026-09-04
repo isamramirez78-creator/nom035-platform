@@ -11,6 +11,7 @@ export function registerCompanyRoutes(app: Express) {
   app.post("/api/companies/register", async (req, res) => {
     try {
       const validatedData = insertCompanySchema.parse(req.body);
+      console.log("REGISTER correo:", validatedData.correoElectronico, "rfc:", validatedData.rfc);
       
       // Check if company already exists
       const existingCompanyByEmail = await companyStorage.getCompanyByEmail(validatedData.correoElectronico);
