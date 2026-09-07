@@ -473,9 +473,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/interventions", async (req, res) => {
+  app.get("/api/interventions", authenticateCompany, async (req, res) => {
     try {
-      const validatedData = insertInterventionSchema.parse(req.body);
+      const companyId = req.company?.id;
+      const { db: dbI } = await import("./db.js");
+      const { sql: sqlI } = await import("drizzle-orm");
+      const result = await dbI.execute(sqlI`SELECT * FROM interventions WHERE company_id = ${companyId} ORDER BY created_at DESC`);
+      res.json(result.rows);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
+  app.post("/api/interventions", authenticateCompany, async (req: any, res) => {
+    try {
+      const companyId = req.company?.id;
+      const dataWithCompany = { ...req.body, company_id: companyId, companyId };
+      const validatedData = insertInterventionSchema.parse(dataWithCompany);
       const intervention = await storage.createIntervention(validatedData);
       res.status(201).json(intervention);
     } catch (error) {
