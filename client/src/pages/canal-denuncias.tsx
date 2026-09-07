@@ -108,7 +108,7 @@ export default function CanalDenuncias() {
               </code>
               <button
                 onClick={() => {
-                  const link = `${window.location.origin}/denuncia/empresa`;
+                  const t = localStorage.getItem("company_token"); const cid = t ? JSON.parse(atob(t.split(".")[1])).companyId : ""; const link = `${window.location.origin}/denuncia-publica/${cid}`;
                   navigator.clipboard.writeText(link);
                   toast({ title: "Link copiado al portapapeles" });
                 }}
@@ -126,7 +126,7 @@ export default function CanalDenuncias() {
             </p>
             <button
               onClick={() => {
-                const link = `${window.location.origin}/denuncia/empresa`;
+                const t2 = localStorage.getItem("company_token"); const cid2 = t2 ? JSON.parse(atob(t2.split(".")[1])).companyId : ""; const link = `${window.location.origin}/denuncia-publica/${cid2}`;
                 const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(link)}`;
                 const win = window.open('', '_blank');
                 if (win) {
