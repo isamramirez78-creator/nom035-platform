@@ -108,6 +108,7 @@ function App() {
           <Route path="/login"                component={LoginRoute} />
           <Route path="/company-login"        component={LoginRoute} />
           <Route path="/forgot-password"        component={ForgotRoute} />
+          <Route path="/denuncia-publica/:companyId" component={() => <Suspense fallback={<Loading />}><DenunciaPublica /></Suspense>} />
           <Route path="/company-register"     component={RegisterRoute} />
           <Route path="/register"             component={RegisterRoute} />
           <Route path="/plans"                component={PlansRoute} />
