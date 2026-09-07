@@ -104,7 +104,7 @@ export default function CanalDenuncias() {
             </p>
             <div className="flex items-center gap-2">
               <code className="flex-1 text-xs p-2 rounded-lg truncate" style={{ background:"#F8FAFC", border:"0.5px solid #E2E8F0", color:"#1E3A5F" }}>
-                {`${window.location.origin}/denuncia/${window.location.hostname.split('.')[0]}`}
+                {`${window.location.origin}/denuncia-publica/${localStorage.getItem("company_token") ? JSON.parse(atob(localStorage.getItem("company_token").split(".")[1])).companyId : ""}`}
               </code>
               <button
                 onClick={() => {
