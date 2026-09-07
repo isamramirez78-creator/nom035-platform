@@ -486,7 +486,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/interventions", authenticateCompany, async (req: any, res) => {
     try {
       const validatedData = req.body;
-      const validatedData = insertInterventionSchema.parse(dataWithCompany);
       const intervention = await storage.createIntervention(validatedData);
       res.status(201).json(intervention);
     } catch (error) {
