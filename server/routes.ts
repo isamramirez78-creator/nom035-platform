@@ -486,8 +486,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/interventions", authenticateCompany, async (req: any, res) => {
     try {
       const validatedData = { ...req.body, company_id: req.company?.id, companyId: req.company?.id, startDate: req.body.startDate ? new Date(req.body.startDate) : null, expectedEndDate: req.body.expectedEndDate ? new Date(req.body.expectedEndDate) : null, actualEndDate: req.body.actualEndDate ? new Date(req.body.actualEndDate) : null };
-      const intervention = await storage.createIntervention(validatedData);
-      res.status(201).json(intervention);
+      const { db: dbInt } = await import("./db.js");
+      const { sql: sqlInt } = await import("drizzle-orm");
+      const intResult = await dbInt.execute(sqlInt`INSERT INTO interventions (employee_id, company_id, intervention_type, title, description, objective, actions, responsible_person, status, priority, start_date, expected_end_date) VALUES (${validatedData.employeeId||null}, ${validatedData.company_id}, ${validatedData.interventionType||null}, ${validatedData.title||null}, ${validatedData.description||null}, ${validatedData.objective||null}, ${JSON.stringify(validatedData.actions||[])}, ${validatedData.responsiblePerson||null}, ${validatedData.status||"planned"}, ${validatedData.priority||"medium"}, ${validatedData.startDate||null}, ${validatedData.expectedEndDate||null}) RETURNING *`);
+      return res.status(201).json(intResult.rows[0]);
     } catch (error) {
       console.error("Error creating intervention:", error);
       res.status(400).json({ message: "Error creating intervention" });
