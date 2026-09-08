@@ -69,6 +69,20 @@ export function registerComplianceRoutes(app: Express) {
     } catch { res.status(500).json({ message: "Error al actualizar" }); }
   });
 
+  // Endpoint publico de denuncias (sin autenticacion)
+  app.post("/api/denuncias/publica/:companyId", async (req, res) => {
+    try {
+      const companyId = parseInt(req.params.companyId);
+      const { tipo, descripcion, area_involucrada, fecha_ocurrencia, anonima, nombre_denunciante, email_denunciante } = req.body;
+      if (!tipo || !descripcion) return res.status(400).json({ message: "Tipo y descripcion son requeridos" });
+      const { db: dbD } = await import("./db.js");
+      const { sql: sqlD } = await import("drizzle-orm");
+      const folio = "DEN-" + Date.now();
+      await dbD.execute(sqlD`INSERT INTO denuncias (company_id, folio, tipo, descripcion, area_involucrada, fecha_ocurrencia, anonima, nombre_denunciante, email_denunciante) VALUES (${companyId}, ${folio}, ${tipo}, ${descripcion}, ${area_involucrada||null}, ${fecha_ocurrencia||null}, ${anonima!==false}, ${anonima?null:nombre_denunciante||null}, ${anonima?null:email_denunciante||null})`);
+      res.json({ message: "Denuncia registrada correctamente", folio });
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
   // ── Canal de Denuncias ────────────────────────────────────────────────────
   app.get("/api/denuncias", authenticateCompany, async (req: any, res) => {
     try {
