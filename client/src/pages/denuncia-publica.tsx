@@ -30,7 +30,7 @@ const schema = z.object({
 
 export default function DenunciaPublica() {
   const params = useParams();
-  const empresaToken = params.token;
+  const empresaToken = params.companyId || params.token;
   const [folio, setFolio] = useState<string|null>(null);
   const [esAnonima, setEsAnonima] = useState(true);
 
