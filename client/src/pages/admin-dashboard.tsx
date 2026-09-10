@@ -300,7 +300,7 @@ export default function AdminDashboard() {
                 <label style={{ color: "#94A3B8", fontSize: 12, fontWeight: 600, display: "block", marginBottom: 6 }}>PLAN</label>
                 <select defaultValue={selected.subscription_plan || "trial"} id="plan-select"
                   style={{ width: "100%", background: "#0F172A", border: "1px solid #334155", borderRadius: 8, padding: "8px 12px", color: "white", fontSize: 13 }}>
-                  <SelectItem value="trial">Prueba</SelectItem>
+                  <option value="trial">Prueba</option>
                   {Object.entries(PLAN_LABELS).filter(([k]) => k !== "trial" && k !== "basic").map(([k, v]) => (
                     <option key={k} value={k}>{v}</option>
                   ))}
