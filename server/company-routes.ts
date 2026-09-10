@@ -74,6 +74,18 @@ export function registerCompanyRoutes(app: Express) {
   });
 
   // Llamar UNA VEZ desde Postman/curl: POST /api/admin/seed con header x-setup-key
+  app.get("/api/admin/companies", async (req, res) => {
+    try {
+      const token = (req.headers.authorization || "").replace("Bearer ", "");
+      const { verifyAdminToken } = await import("./auth.js");
+      verifyAdminToken(token);
+      const { db: dbAC } = await import("./db.js");
+      const { sql: sqlAC } = await import("drizzle-orm");
+      const result = await dbAC.execute(sqlAC`SELECT id, razon_social, nombre_empresa, correo_electronico, rfc, subscription_status, subscription_plan, trial_end_date, subscription_end_date, cantidad_empleados, created_at FROM companies ORDER BY created_at DESC`);
+      res.json(result.rows);
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
+
   app.post("/api/admin/seed", async (req, res) => {
     try {
       const setupKey = req.headers['x-setup-key'];
