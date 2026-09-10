@@ -146,6 +146,15 @@ export default function AdminDashboard() {
     },
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: async (id: number) => {
+      const r = await fetch(`/api/admin/companies/${id}`, { method: "DELETE", headers: h() });
+      if (!r.ok) throw new Error("Error al eliminar");
+      return r.json();
+    },
+    onSuccess: () => { setSelected(null); window.location.reload(); },
+  });
+
   const updateMutation = useMutation({
     mutationFn: async ({ id, updates }: { id: number; updates: any }) => {
       const r = await fetch(`/api/admin/companies/${id}`, { method: "PATCH", headers: h(), body: JSON.stringify(updates) });
@@ -204,7 +213,7 @@ export default function AdminDashboard() {
 
         {/* Tabs */}
         <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
-          {([["empresas", "🏢 Empresas"], ["facturacion", "🧾 Facturacion"], ["cfdi", "Solicitudes CFDI"]] as [string, string][]).map(([id, label]) => (
+          {([["empresas", "🏢 Empresas"], ["facturacion", "🧾 Facturación"]] as [string, string][]).map(([id, label]) => (
             <button key={id} onClick={() => setTab(id as "empresas" | "facturacion" | "cfdi")}
               style={{ padding: "8px 20px", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 14, fontWeight: 600,
                 background: tab === id ? "#84CC16" : "rgba(255,255,255,0.05)", color: tab === id ? "#1E3A5F" : "#94A3B8" }}>
@@ -300,7 +309,7 @@ export default function AdminDashboard() {
                 <label style={{ color: "#94A3B8", fontSize: 12, fontWeight: 600, display: "block", marginBottom: 6 }}>PLAN</label>
                 <select defaultValue={selected.subscription_plan || "trial"} id="plan-select"
                   style={{ width: "100%", background: "#0F172A", border: "1px solid #334155", borderRadius: 8, padding: "8px 12px", color: "white", fontSize: 13 }}>
-                  <option value="trial">Prueba</option>
+                  <SelectItem value="trial">Prueba</SelectItem>
                   {Object.entries(PLAN_LABELS).filter(([k]) => k !== "trial" && k !== "basic").map(([k, v]) => (
                     <option key={k} value={k}>{v}</option>
                   ))}
@@ -314,6 +323,14 @@ export default function AdminDashboard() {
             </div>
             <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
               <Button onClick={() => setSelected(null)} variant="outline" style={{ flex: 1, borderColor: "#334155", color: "#94A3B8" }}>Cancelar</Button>
+              <Button onClick={() => {
+                if (window.confirm("¿Eliminar permanentemente esta empresa y todos sus datos? Esta acción no se puede deshacer.")) {
+                  deleteMutation.mutate(selected.id);
+                }
+              }} style={{ flex: 1, background: "#7F1D1D", color: "white", fontSize: 11 }}
+                disabled={deleteMutation.isPending}>
+                {deleteMutation.isPending ? "Eliminando..." : "🗑️ Eliminar"}
+              </Button>
               <Button onClick={() => updateMutation.mutate({ id: selected.id, updates: { is_active: !selected.is_active } })}
                 style={{ flex: 1, background: selected.is_active ? "#EF4444" : "#10B981", color: "white" }}>
                 {selected.is_active ? "Desactivar" : "Activar"}
@@ -333,4 +350,3 @@ export default function AdminDashboard() {
     </div>
   );
 }
-// cfdi 1784939427
