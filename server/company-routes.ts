@@ -86,6 +86,22 @@ export function registerCompanyRoutes(app: Express) {
     } catch (e: any) { res.status(500).json({ message: e.message }); }
   });
 
+
+  app.delete("/api/admin/companies/:id", async (req, res) => {
+    try {
+      const token = (req.headers.authorization || "").replace("Bearer ", "");
+      const { verifyAdminToken } = await import("./auth.js");
+      verifyAdminToken(token);
+      const id = parseInt(req.params.id);
+      const { db: dbDel } = await import("./db.js");
+      const { sql: sqlDel } = await import("drizzle-orm");
+      await dbDel.execute(sqlDel`DELETE FROM employees WHERE company_id = ${id}`);
+      await dbDel.execute(sqlDel`DELETE FROM evaluations WHERE company_id = ${id}`);
+      await dbDel.execute(sqlDel`DELETE FROM interventions WHERE company_id = ${id}`);
+      await dbDel.execute(sqlDel`DELETE FROM companies WHERE id = ${id}`);
+      res.json({ message: "Empresa eliminada" });
+    } catch (e: any) { res.status(500).json({ message: e.message }); }
+  });
   app.post("/api/admin/seed", async (req, res) => {
     try {
       const setupKey = req.headers['x-setup-key'];
